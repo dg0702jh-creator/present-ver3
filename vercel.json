@@ -1,6 +1,6 @@
 {
   "name": "dog-mini-game-gacha",
-  "version": "1.0.0",
+  "version": "gemini-3.1-flash-lite",
   "description": "댕댕이 멀티플랫폼 미니게임 및 캡슐 뽑기 웹앱",
   "main": "api/generate.js",
   "dependencies": {
