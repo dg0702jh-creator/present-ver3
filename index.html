@@ -1,0 +1,24 @@
+import { GoogleGenAI } from '@google/genai';
+
+export default async function handler(req, res) {
+  if (!process.env.GEMINI_API_KEY) {
+    return res.status(500).json({ error: "GEMINI_API_KEY 환경 변수가 구성되지 않았습니다." });
+  }
+
+  try {
+    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+    
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: '미니게임 뽑기에서 꽝이 나온 유저에게 귀여운 강아지 콘셉트(말끝에 ~멍! 붙이기)로 유쾌하고 짧은 위로의 한마디를 50자 이내로 해줘.',
+    });
+
+    const replyText = response.text || "다음엔 꼭 좋은 게 나올 거다 멍! 힘내라 멍!";
+    
+    res.setHeader('Cache-Control', 'no-store');
+    return res.status(200).json({ message: replyText.trim() });
+  } catch (error) {
+    console.error("Gemini API 통신 에러:", error);
+    return res.status(500).json({ message: "으으음.. 다음 장난감을 찾아보겠다 멍! (오류 발생)" });
+  }
+}
