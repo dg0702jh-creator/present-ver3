@@ -1,8 +1,8 @@
 {
   "name": "dog-mini-game",
-  "version": "gemini-3.1-flash-lite'",
+  "version": "1.0.0",
   "type": "module",
   "dependencies": {
-    "@google/genai": "^0.1.1"
+    "@google/genai": "0.1.1"
   }
 }
