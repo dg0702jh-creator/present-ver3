@@ -43,3 +43,195 @@
             <p class="text-sm text-slate-500 mb-6 text-center">"뽑기" 버튼을 <b>꾹~ 누르고 있으면</b><br>캡슐이 열리며 선물이 튀어나옵니다!</p>
             
             <div class="w-48 bg-slate-100 h-5 rounded-full overflow-hidden border border-purple-200 mb-4 relative">
+                <div id="gacha-progress" class="progress-bar bg-purple-500 h-full w-0"></div>
+            </div>
+
+            <button id="gacha-btn" class="w-36 h-36 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-500 text-white text-2xl shadow-lg border-4 border-purple-200 active:scale-95 transition-transform select-none cursor-pointer flex items-center justify-center">
+                꾹 누르기!
+            </button>
+
+            <div id="gacha-result" class="mt-4 text-center text-lg font-bold text-purple-900 min-h-[40px]"></div>
+            <button id="show-rate-btn" class="mt-6 text-xs text-slate-400 underline hover:text-purple-600">📊 확률표 확인하기</button>
+        </div>
+    </main>
+
+    <footer class="text-xs text-slate-400 pb-2">&copy; 2026 댕댕이 미니게임 빌더.</footer>
+
+    <div id="rate-modal" class="fixed inset-0 bg-black/50 hidden items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl max-w-xs w-full p-6 shadow-2xl border-2 border-amber-400">
+            <h4 class="text-xl font-bold text-center mb-4 text-amber-600">📊 캡슐 뽑기 확률표</h4>
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="border-b-2 border-slate-200 text-sm text-slate-500">
+                        <th class="py-2">선물 리스트</th>
+                        <th class="py-2 text-right">확률</th>
+                    </tr>
+                </thead>
+                <tbody class="text-slate-700 text-sm">
+                    <tr class="border-b border-slate-100 text-orange-600 font-bold"><td class="py-2">👑 주인장이 밥 사줌</td><td class="py-2 text-right">0.5%</td></tr>
+                    <tr class="border-b border-slate-100 text-amber-600"><td class="py-2">💵 5천원 이내 상품</td><td class="py-2 text-right">1.0%</td></tr>
+                    <tr class="border-b border-slate-100 text-yellow-600"><td class="py-2">🍖 간식 (1~2개)</td><td class="py-2 text-right">5.0%</td></tr>
+                    <tr class="text-slate-400"><td class="py-2">💨 꽝 (위로 한마디)</td><td class="py-2 text-right">93.5%</td></tr>
+                </tbody>
+            </table>
+            <button id="close-rate-btn" class="w-full mt-6 bg-slate-800 text-white py-2 rounded-xl">닫기</button>
+        </div>
+    </div>
+
+    <script>
+        const gameState = { level: 1, stage: 1, maxStage: 3, currentTab: 'game', gachaPressTimer: null, gachaProgressInterval: null, gachaHoldTime: 0, requiredHoldTime: 15 };
+        const el = {
+            levelDisplay: document.getElementById('level-display'), stageDisplay: document.getElementById('stage-display'), levelProgress: document.getElementById('level-progress'),
+            lvl2Alert: document.getElementById('lvl2-alert'), tabContainer: document.getElementById('tab-container'), tabGame: document.getElementById('tab-game'), tabGacha: document.getElementById('tab-gacha'),
+            gamePanel: document.getElementById('game-panel'), gachaPanel: document.getElementById('gacha-panel'), gameContent: document.getElementById('game-content'), gameControls: document.getElementById('game-controls'),
+            gachaBtn: document.getElementById('gacha-btn'), gachaProgress: document.getElementById('gacha-progress'), gachaResult: document.getElementById('gacha-result'), rateModal: document.getElementById('rate-modal'),
+            showRateBtn: document.getElementById('show-rate-btn'), closeRateBtn: document.getElementById('close-rate-btn')
+        };
+
+        function updateUI() {
+            el.levelDisplay.innerText = "LV. " + gameState.level + (gameState.level >= 2 ? " 🔥 댕댕이 마스터" : " 🐶 댕댕이 초보");
+            el.stageDisplay.innerText = gameState.stage + "단계 / " + gameState.maxStage + "단계";
+            el.levelProgress.style.width = ((gameState.stage - 1) / gameState.maxStage) * 100 + "%";
+            if (gameState.level >= 2) { el.lvl2Alert.classList.remove('hidden'); el.tabContainer.classList.remove('hidden'); }
+            else { el.lvl2Alert.classList.add('hidden'); el.tabContainer.classList.add('hidden'); switchTab('game'); }
+        }
+
+        function switchTab(tab) {
+            gameState.currentTab = tab;
+            if (tab === 'game') {
+                el.tabGame.className = "flex-1 py-2 rounded-xl bg-amber-500 text-white shadow-md text-lg";
+                el.tabGacha.className = "flex-1 py-2 rounded-xl bg-slate-200 text-slate-600 shadow-md text-lg";
+                el.gamePanel.classList.remove('hidden'); el.gachaPanel.classList.add('hidden');
+            } else {
+                el.tabGacha.className = "flex-1 py-2 rounded-xl bg-purple-600 text-white shadow-md text-lg";
+                el.tabGame.className = "flex-1 py-2 rounded-xl bg-slate-200 text-slate-600 shadow-md text-lg";
+                el.gamePanel.classList.add('hidden'); el.gachaPanel.classList.remove('hidden');
+            }
+        }
+        el.tabGame.addEventListener('click', () => switchTab('game'));
+        el.tabGacha.addEventListener('click', () => switchTab('gacha'));
+
+        const games = {
+            1: {
+                title: "🐾 1단계: 간식 배달 대작전 (러너)", description: "앞에 장애물이 나타났습니다! 타이밍에 맞춰 점프하세요!",
+                play: function(callback) {
+                    let isJumping = false;
+                    el.gameContent.innerHTML = '<div class="text-xl font-bold mb-4">' + this.title + '</div><div class="relative w-full h-32 bg-slate-100 rounded-xl overflow-hidden mb-4 border border-slate-200"><div id="dog-runner" class="absolute bottom-2 left-6 text-4xl transition-all duration-300">🐕</div><div class="absolute bottom-2 right-6 text-3xl">📦</div></div><p class="text-sm text-slate-500">' + this.description + '</p>';
+                    const dog = document.getElementById('dog-runner');
+                    const btn = document.createElement('button');
+                    btn.className = "w-full bg-amber-500 text-white font-bold py-3 rounded-xl text-lg shadow-md"; 
+                    btn.innerText = "🦘 점프하기!";
+                    btn.onclick = function() {
+                        if (isJumping) return;
+                        isJumping = true;
+                        dog.style.transform = "translateY(-50px)";
+                        setTimeout(function() {
+                            dog.style.transform = "translateY(0px)";
+                            isJumping = false;
+                        }, 400);
+                    };
+                    el.gameControls.innerHTML = ''; 
+                    el.gameControls.appendChild(btn);
+                    setTimeout(callback, 2500);
+                }
+            },
+            2: {
+                title: "👨‍🍳 2단계: 뭉치의 멍멍 셰프 (받기 퍼즐)", description: "하늘에서 맛있는 식재료가 떨어집니다! 바구니를 좌우로 움직여 받으세요!",
+                play: function(callback) {
+                    el.gameContent.innerHTML = '<div class="text-xl font-bold mb-4">' + this.title + '</div><div class="flex gap-4 text-6xl my-4 justify-center animate-bounce">🥩 🥦 🧀</div><p class="text-sm text-slate-500">' + this.description + '</p>';
+                    el.gameControls.innerHTML = '';
+                    ['왼쪽으로 이동 ◀', '▶ 오른쪽으로 이동'].forEach(function(l) {
+                        const b = document.createElement('button'); 
+                        b.className = "flex-1 bg-amber-500 text-white font-bold py-3 rounded-xl text-base shadow-md"; 
+                        b.innerText = l; 
+                        el.gameControls.appendChild(b);
+                    });
+                    setTimeout(callback, 2500);
+                }
+            },
+            3: {
+                title: "🚩 3단계: 우리 동네 댕댕이 대장 (영역 표시)", description: "동네 골목을 질주하며 사각형 영역을 완성해 영토를 넓히세요!",
+                play: function(callback) {
+                    el.gameContent.innerHTML = '<div class="text-xl font-bold mb-4">' + this.title + '</div><div class="w-full grid grid-cols-5 gap-1 max-w-[200px] my-2">곽</div><p class="text-sm text-slate-500">' + this.description + '</p>';
+                    el.gameControls.innerHTML = '';
+                    ['▲', '◀', '▼', '▶'].forEach(function(key) {
+                        const b = document.createElement('button'); 
+                        b.className = "w-10 h-10 bg-amber-500 text-white font-bold rounded-lg flex items-center justify-center shadow"; 
+                        b.innerText = key; 
+                        el.gameControls.appendChild(b);
+                    });
+                    setTimeout(callback, 2500);
+                }
+            }
+        };
+
+        function loadCurrentStage() {
+            updateUI();
+            if (gameState.stage > gameState.maxStage) {
+                gameState.level += 1; gameState.stage = 1; updateUI();
+                el.gameContent.innerHTML = '<div class="text-3xl mb-2">🎉 LEVEL UP! 🎉</div><p class="text-lg text-amber-600">축하합니다! 레벨이 상승하여 난이도가 증가합니다!</p><div class="text-5xl my-4">🐕✨</div>';
+                el.gameControls.innerHTML = '';
+                const b = document.createElement('button'); b.className = "w-full bg-slate-800 text-white font-bold py-3 rounded-xl text-lg"; b.innerText = "다음 난이도 도전하기"; b.onclick = loadCurrentStage; el.gameControls.appendChild(b);
+                return;
+            }
+            games[gameState.stage].play(function() {
+                el.gameContent.innerHTML = '<div class="text-2xl font-bold text-green-600 mb-2">Stage Clear! ✨</div><p class="text-slate-600">댕댕이가 임무를 완수했습니다!</p><div class="text-5xl my-4">🐾</div>';
+                el.gameControls.innerHTML = '';
+                const b = document.createElement('button'); b.className = "w-full bg-green-500 text-white font-bold py-3 rounded-xl text-lg"; b.innerText = "다음 단계로 이동"; b.onclick = function() { gameState.stage += 1; loadCurrentStage(); }; el.gameControls.appendChild(b);
+            });
+        }
+
+        function startPress() {
+            gameState.gachaHoldTime = 0; el.gachaResult.innerText = ""; el.gachaProgress.style.width = '0%';
+            gameState.gachaProgressInterval = setInterval(function() {
+                gameState.gachaHoldTime++;
+                let pct = (gameState.gachaHoldTime / gameState.requiredHoldTime) * 100;
+                el.gachaProgress.style.width = Math.min(pct, 100) + '%';
+                if (gameState.gachaHoldTime >= gameState.requiredHoldTime) clearInterval(gameState.gachaProgressInterval);
+            }, 100);
+            gameState.gachaPressTimer = setTimeout(triggerGacha, gameState.requiredHoldTime * 100);
+        }
+
+        function cancelPress() {
+            clearTimeout(gameState.gachaPressTimer); clearInterval(gameState.gachaProgressInterval);
+            if (gameState.gachaHoldTime < gameState.requiredHoldTime) {
+                el.gachaProgress.style.width = '0%'; el.gachaResult.innerText = "조금 더 길게 꾹 누르고 계세요!";
+                el.gachaResult.className = "mt-4 text-center text-sm font-bold text-red-500 min-h-[40px]";
+            }
+        }
+
+        async function triggerGacha() {
+            const rand = Math.random() * 100;
+            let prize = ""; let isWin = true;
+            if (rand < 0.5) prize = "👑 대박! 주인장이 맛있는 밥 사줌!";
+            else if (rand < 1.5) prize = "💵 축하합니다! 5천원 이내 상품!";
+            else if (rand < 6.5) prize = "🍖 축하합니다! 맛있는 간식 (1~2개)!";
+            else { prize = "꽝"; isWin = false; }
+
+            if (isWin) {
+                el.gachaResult.innerText = prize; el.gachaResult.className = "mt-4 text-center text-lg font-bold text-orange-600 min-h-[40px]";
+            } else {
+                el.gachaResult.innerText = "🐾 꽝! 댕댕이가 위로 한마디 쓰는 중...";
+                el.gachaResult.className = "mt-4 text-center text-sm font-bold text-slate-500 min-h-[40px]";
+                try {
+                    const response = await fetch('/api/generate');
+                    const data = await response.json();
+                    el.gachaResult.innerText = '💨 꽝! 댕댕이의 한마디:\n"' + data.message + '"';
+                } catch (err) {
+                    el.gachaResult.innerText = "💨 꽝! 다음 기회에! (댕댕이가 시무룩해합니다)";
+                }
+            }
+        }
+
+        el.gachaBtn.addEventListener('mousedown', startPress);
+        el.gachaBtn.addEventListener('mouseup', cancelPress);
+        el.gachaBtn.addEventListener('mouseleave', cancelPress);
+        el.gachaBtn.addEventListener('touchstart', function(e) { e.preventDefault(); startPress(); });
+        el.gachaBtn.addEventListener('touchend', function(e) { e.preventDefault(); cancelPress(); });
+        el.showRateBtn.onclick = function() { el.rateModal.className = "fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"; };
+        el.closeRateBtn.onclick = function() { el.rateModal.className = "fixed inset-0 bg-black/50 hidden items-center justify-center p-4 z-50"; };
+
+        loadCurrentStage();
+    </script>
+</body>
+</html>
