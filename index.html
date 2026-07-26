@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>test 1 </title>
+    <title>댕댕이의 미니게임 천국</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Jua&display=swap');
@@ -74,7 +74,29 @@
         </div>
     </main>
 
-    <footer class="text-xs text-slate-400 pb-1">&copy; 2026 댕댕이 미니게임 빌더.</footer>
+    <!-- 3. 창을 밑으로 내리면 나오는 수정사항 / 오류 건의 게시판 -->
+    <section class="w-full max-w-md bg-white rounded-3xl shadow-md border-2 border-slate-200 p-5 mt-6 mb-4 flex flex-col gap-3">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+            <h4 class="text-base font-bold text-slate-700">📝 수정 사항 및 오류 건의함</h4>
+            <span class="text-[11px] text-slate-400">자유롭게 의견을 남겨주세요!</span>
+        </div>
+
+        <!-- 글 작성 폼 -->
+        <div class="flex flex-col gap-2">
+            <textarea id="board-input" rows="3" placeholder="오류 내용, 수정 요청, 아이디어 등을 남겨주세요..." class="w-full border border-slate-200 rounded-xl p-3 text-xs focus:outline-none focus:border-amber-400 resize-none"></textarea>
+            <button id="board-submit-btn" class="w-full bg-slate-800 hover:bg-slate-900 text-white py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer">의견 등록하기 ✍️</button>
+        </div>
+
+        <!-- 등록된 글 목록 표시 영역 -->
+        <div class="flex flex-col gap-2 mt-2">
+            <span class="text-xs font-bold text-slate-500">최근 건의 목록</span>
+            <div id="board-list-container" class="flex flex-col gap-2 max-h-60 overflow-y-auto pr-1">
+                <!-- 자바스크립트로 동적 생성됨 -->
+            </div>
+        </div>
+    </section>
+
+    <footer class="text-xs text-slate-400 pb-2">&copy; 2026 댕댕이 미니게임 빌더.</footer>
 
     <!-- 확률표 모달 -->
     <div id="rate-modal" class="fixed inset-0 bg-black/50 hidden items-center justify-center p-4 z-50">
@@ -166,7 +188,8 @@
             adminModal: document.getElementById('admin-modal'), showAdminBtn: document.getElementById('show-admin-btn'), closeAdminBtn: document.getElementById('close-admin-btn'),
             adminAuthSection: document.getElementById('admin-auth-section'), adminMasterkeyInput: document.getElementById('admin-masterkey-input'), adminLoginBtn: document.getElementById('admin-login-btn'),
             adminPanelSection: document.getElementById('admin-panel-section'),
-            adminCodeInput: document.getElementById('admin-code-input'), adminCheckBtn: document.getElementById('admin-check-btn'), adminResultBox: document.getElementById('admin-result-box')
+            adminCodeInput: document.getElementById('admin-code-input'), adminCheckBtn: document.getElementById('admin-check-btn'), adminResultBox: document.getElementById('admin-result-box'),
+            boardInput: document.getElementById('board-input'), boardSubmitBtn: document.getElementById('board-submit-btn'), boardListContainer: document.getElementById('board-list-container')
         };
 
         function loadUserData(nick) {
@@ -199,6 +222,45 @@
             localStorage.setItem('dog_game_user_' + gameState.nickname, JSON.stringify(dataToSave));
         }
 
+        // 건의사항 게시판 기능 (로컬스토리지 기반 공유 저장)
+        function loadBoardPosts() {
+            const posts = JSON.parse(localStorage.getItem('dog_game_board_posts') || '[]');
+            el.boardListContainer.innerHTML = '';
+            if (posts.length === 0) {
+                el.boardListContainer.innerHTML = '<div class="text-center text-xs text-slate-400 py-4">등록된 의견이 없습니다. 첫 의견을 남겨보세요!</div>';
+                return;
+            }
+            posts.forEach((p, index) => {
+                const item = document.createElement('div');
+                item.className = "bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs flex flex-col gap-1";
+                item.innerHTML = `
+                    <div class="flex justify-between items-center text-[11px]">
+                        <span class="font-bold text-amber-600">🐶 ${p.writer}</span>
+                        <span class="text-slate-400">${p.time}</span>
+                    </div>
+                    <div class="text-slate-700 whitespace-pre-wrap">${p.content}</div>
+                `;
+                el.boardListContainer.appendChild(item);
+            });
+        }
+
+        el.boardSubmitBtn.onclick = () => {
+            const text = el.boardInput.value.trim();
+            if (!text) {
+                alert("내용을 입력해주세요!");
+                return;
+            }
+            const now = new Date();
+            const timeString = String(now.getMonth()+1).padStart(2,'0') + "-" + String(now.getDate()).padStart(2,'0') + " " + String(now.getHours()).padStart(2,'0') + ":" + String(now.getMinutes()).padStart(2,'0');
+            
+            const posts = JSON.parse(localStorage.getItem('dog_game_board_posts') || '[]');
+            posts.unshift({ writer: gameState.nickname || '익명의 댕댕이', content: text, time: timeString });
+            
+            localStorage.setItem('dog_game_board_posts', JSON.stringify(posts));
+            el.boardInput.value = "";
+            loadBoardPosts();
+        };
+
         window.addEventListener('DOMContentLoaded', () => {
             const lastNickname = localStorage.getItem('dog_game_last_nickname');
             if (lastNickname) {
@@ -211,6 +273,7 @@
             } else {
                 el.nicknameModal.classList.remove('hidden');
             }
+            loadBoardPosts();
         });
 
         el.nicknameSubmitBtn.onclick = () => {
@@ -598,15 +661,15 @@
                 el.gachaResult.innerHTML = prize + '<br><span class="text-[11px] text-purple-600 font-normal">🎟️ 티켓함에 저장되었습니다!</span>';
                 el.gachaResult.className = "mt-3 text-center text-xs font-bold text-orange-600 min-h-[40px]";
             } else {
-                el.gachaResult.innerText = "🐾 꽝! 댕댕이가 위로 한마디 쓰는 중...";
+                const failMessages = [
+                    "💨 꽝! 다음엔 꼭 당첨될 거에요 멍!",
+                    "💨 꽝! 댕댕이가 아쉬워서 꼬리를 흔들어요.",
+                    "💨 꽝! 운을 조금 더 아껴두셨나 봐요!",
+                    "💨 꽝! 힘내라 멍! 다시 도전해 보세요."
+                ];
+                const randomMsg = failMessages[Math.floor(Math.random() * failMessages.length)];
+                el.gachaResult.innerText = randomMsg;
                 el.gachaResult.className = "mt-3 text-center text-xs font-bold text-slate-500 min-h-[40px]";
-                try {
-                    const response = await fetch('/api/generate');
-                    const data = await response.json();
-                    el.gachaResult.innerText = '💨 꽝! 댕댕이의 한마디:\n"' + data.message + '"';
-                } catch (err) {
-                    el.gachaResult.innerText = "💨 꽝! 힘내라 멍! (다음 기회에)";
-                }
             }
         }
 
@@ -673,7 +736,10 @@
             
             el.adminModal.className = "fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50";
         };
-        el.closeAdminBtn.onclick = () => el.adminModal.className = "fixed inset-0 bg-black/50 hidden items-center justify-center p-4 z-50";
+        el.closeAdminBtn.onclick = () => {
+            el.adminModal.className = "fixed inset-0 bg-black/50 hidden items-center justify-center p-4 z-50";
+            loadBoardPosts();
+        };
 
         el.adminLoginBtn.onclick = () => {
             const enteredKey = el.adminMasterkeyInput.value.trim().toLowerCase();
