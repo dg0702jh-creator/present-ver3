@@ -14,11 +14,11 @@
 </head>
 <body class="bg-amber-50 text-slate-800 min-h-screen flex flex-col items-center justify-between p-4 selection:bg-amber-200">
 
-    <header class="w-full max-w-md bg-white rounded-2xl shadow-md p-3 text-center border-2 border-amber-200 relative flex flex-col gap-2">
+    <header class="w-full max-w-md bg-white rounded-2xl shadow-md p-3 text-center border-2 border-amber-200 flex flex-col gap-2">
         <div class="flex justify-between items-center w-full">
             <span id="level-display" class="text-lg text-amber-600 font-bold">🐶 LV. 1 모험</span>
             <div class="flex gap-1.5">
-                <button id="show-ticket-box-btn" class="text-xs bg-purple-100 text-purple-800 px-2.5 py-1 rounded-lg hover:bg-purple-200 hidden font-bold">🎟️ 티켓함</button>
+                <button id="show-ticket-box-btn" class="text-xs bg-purple-100 text-purple-800 px-2.5 py-1 rounded-lg hover:bg-purple-200 font-bold hidden">🎟️ 티켓함</button>
                 <button id="show-rate-btn" class="text-xs bg-amber-100 text-amber-800 px-2.5 py-1 rounded-lg hover:bg-amber-200 font-bold">📊 확률표</button>
             </div>
         </div>
@@ -54,7 +54,7 @@
                 <span>꾹 누르기!</span>
             </button>
 
-            <div id="gacha-result" class="mt-3 text-center text-sm font-bold text-purple-900 min-h-[40px]"></div>
+            <div id="gacha-result" class="mt-3 text-center text-xs font-bold text-purple-900 min-h-[40px]"></div>
         </div>
     </main>
 
@@ -145,7 +145,7 @@
                             '<div>❤️ HP: <span id="hp-val" class="text-red-500 text-base">100</span></div>' +
                             '<div>⏳ 남은 시간: <span id="time-val" class="text-amber-600 text-base">15</span>초</div>' +
                         '</div>' +
-                        '<div id="event-box" class="text-base font-bold text-slate-700 bg-slate-100 p-4 rounded-xl border border-slate-200 min-h-[50px] flex items-center justify-center">준비 중...</div>';
+                        '<div id="event-box" class="text-base font-bold text-slate-700 bg-slate-100 p-4 rounded-xl border border-slate-200 min-h-[50px] flex items-center justify-center">하늘을 주시하세요!</div>';
 
                     el.gameControls.innerHTML = '';
                     const btn1 = document.createElement('button');
@@ -178,8 +178,7 @@
                         const tEl = document.getElementById('time-val');
                         if (tEl) tEl.innerText = timeLeft;
 
-                        // 랜덤 이벤트 발생 시뮬레이션
-                        if (Math.random() > 0.6) {
+                        if (Math.random() > 0.5) {
                             if (Math.random() > 0.4) {
                                 hp -= 20;
                                 document.getElementById('event-box').innerHTML = '<span class="text-red-500">🪵 하늘에서 장애물이 떨어졌다! (-20 HP)</span>';
@@ -274,3 +273,212 @@
                     let targetScore = 20 + (gameState.level - 1) * 5;
                     let myScore = 0;
                     let aiScore = 0;
+                    let gameActive = true;
+
+                    el.gameContent.innerHTML = '<div class="text-sm font-bold mb-1">' + this.title + '</div>' +
+                        '<div class="text-xs text-slate-500 mb-2">' + this.desc + '</div>' +
+                        '<div class="flex justify-around items-center bg-amber-50 p-2 rounded-xl border border-amber-200 mb-2 text-xs font-bold">' +
+                            '<div>🐶 나: <span id="my-sc" class="text-amber-600 text-base">0</span>/' + targetScore + '점</div>' +
+                            '<div>⏳ 제한시간: <span id="time-sc" class="text-red-500 text-base">' + timeLimit + '</span>초</div>' +
+                            '<div>🤖 AI: <span id="ai-sc" class="text-slate-600 text-base">0</span>점</div>' +
+                        '</div>' +
+                        '<div class="w-full bg-slate-200 h-2.5 rounded-full overflow-hidden relative">' +
+                            '<div id="battle-bar" class="bg-amber-500 h-full w-[50%] transition-all"></div>' +
+                        '</div>';
+
+                    let aiSpeed = 300 - (gameState.level - 1) * 50;
+                    const aiInterval = setInterval(() => {
+                        if (!gameActive) return;
+                        aiScore += 1;
+                        if(aiScore > targetScore) aiScore = targetScore;
+                        const aiEl = document.getElementById('ai-sc');
+                        if(aiEl) aiEl.innerText = aiScore;
+
+                        if (aiScore >= targetScore && myScore < targetScore) {
+                            gameActive = false;
+                            clearInterval(aiInterval);
+                            clearInterval(countDownTimer);
+                            alert("AI가 먼저 목표 점수를 달성했습니다! 다시 도전해 주세요.");
+                            loadStage();
+                        }
+                    }, Math.max(aiSpeed, 100));
+
+                    const countDownTimer = setInterval(() => {
+                        if (!gameActive) return;
+                        timeLimit--;
+                        const tEl = document.getElementById('time-sc');
+                        if(tEl) tEl.innerText = timeLimit;
+
+                        if (timeLimit <= 0 && myScore < targetScore) {
+                            gameActive = false;
+                            clearInterval(aiInterval);
+                            clearInterval(countDownTimer);
+                            alert("시간 초과! 패배했습니다. 다시 도전하세요.");
+                            loadStage();
+                        }
+                    }, 1000);
+
+                    el.gameControls.innerHTML = '';
+                    const btn = document.createElement('button');
+                    btn.className = "w-full bg-amber-500 text-white font-bold py-4 rounded-xl text-xl shadow-md active:scale-95";
+                    btn.innerText = "🔥 빛의 속도로 연타하기!";
+                    
+                    btn.onclick = () => {
+                        if (!gameActive) return;
+                        myScore++;
+                        const myEl = document.getElementById('my-sc');
+                        if(myEl) myEl.innerText = myScore;
+
+                        let ratio = (myScore / (myScore + aiScore || 1)) * 100;
+                        const bar = document.getElementById('battle-bar');
+                        if(bar) bar.style.width = ratio + '%';
+
+                        if (myScore >= targetScore) {
+                            gameActive = false;
+                            clearInterval(aiInterval);
+                            clearInterval(countDownTimer);
+                            btn.onclick = null;
+                            onClear();
+                        }
+                    };
+                    el.gameControls.appendChild(btn);
+                }
+            }
+        };
+
+        function loadStage() {
+            updateUI();
+            if (gameState.stage > gameState.maxStage) {
+                gameState.tickets += 2;
+                gameState.level += 1;
+                gameState.stage = 1;
+                updateUI();
+                
+                el.gameContent.innerHTML = '<div class="text-2xl font-bold text-orange-600 mb-2">🎉 모든 모험 클리어! 🎉</div>' +
+                    '<p class="text-slate-600 mb-1 text-sm">보상으로 <b>🔮 뽑기권 2장</b>이 지급되었습니다!</p>' +
+                    '<p class="text-xs text-purple-600 font-bold mb-3">아래 버튼을 눌러 LV.' + gameState.level + ' 모험을 시작하세요!</p>' +
+                    '<div class="text-3xl my-1">🎟️✨🎟️</div>';
+                el.gameControls.innerHTML = '';
+                const b = document.createElement('button');
+                b.className = "w-full bg-purple-600 text-white font-bold py-3 rounded-xl text-lg shadow-md";
+                b.innerText = "🚀 다음 레벨(LV." + gameState.level + ") 시작하기";
+                b.onclick = () => {
+                    loadStage();
+                };
+                el.gameControls.appendChild(b);
+                return;
+            }
+
+            games[gameState.stage].start(() => {
+                el.gameContent.innerHTML = '<div class="text-2xl font-bold text-green-600 mb-2">Stage Clear! ✨</div>' +
+                    '<p class="text-slate-600 text-sm">멋지게 단계를 돌파했습니다!</p><div class="text-3xl my-2">🐾</div>';
+                el.gameControls.innerHTML = '';
+                const b = document.createElement('button');
+                b.className = "w-full bg-green-500 text-white font-bold py-3 rounded-xl text-lg shadow-md";
+                b.innerText = "다음 단계로 이동";
+                b.onclick = () => {
+                    gameState.stage++;
+                    loadStage();
+                };
+                el.gameControls.appendChild(b);
+            });
+        }
+
+        // 캡슐 뽑기 로직
+        function startPress() {
+            if (gameState.tickets <= 0) {
+                el.gachaResult.innerText = "🎟️ 뽑기권이 부족합니다! 게임을 모두 클리어하고 오세요!";
+                el.gachaResult.className = "mt-3 text-center text-xs font-bold text-red-500 min-h-[40px]";
+                return;
+            }
+
+            gameState.gachaHoldTime = 0; el.gachaResult.innerText = ""; el.gachaProgress.style.width = '0%';
+            gameState.gachaProgressInterval = setInterval(() => {
+                gameState.gachaHoldTime++;
+                let pct = (gameState.gachaHoldTime / gameState.requiredHoldTime) * 100;
+                el.gachaProgress.style.width = Math.min(pct, 100) + '%';
+                if (gameState.gachaHoldTime >= gameState.requiredHoldTime) clearInterval(gameState.gachaProgressInterval);
+            }, 100);
+            gameState.gachaPressTimer = setTimeout(triggerGacha, gameState.requiredHoldTime * 100);
+        }
+
+        function cancelPress() {
+            clearTimeout(gameState.gachaPressTimer); clearInterval(gameState.gachaProgressInterval);
+            if (gameState.tickets > 0 && gameState.gachaHoldTime < gameState.requiredHoldTime) {
+                el.gachaProgress.style.width = '0%'; 
+                el.gachaResult.innerText = "조금 더 길게 꾹 누르고 계세요!";
+                el.gachaResult.className = "mt-3 text-center text-xs font-bold text-red-500 min-h-[40px]";
+            }
+        }
+
+        async function triggerGacha() {
+            if (gameState.tickets <= 0) return;
+            gameState.tickets--;
+            updateUI();
+
+            const rand = Math.random() * 100;
+            let prize = ""; let isWin = true;
+
+            if (rand < 0.5) {
+                prize = "👑 [0.5%] 대박! 5천원 이내의 원하는 것 (깊카/문상 불가)";
+            } else if (rand < 5.5) {
+                prize = "🍛 [5.0%] 축하합니다! 주인장이 밥 사줌!";
+            } else if (rand < 20.0) {
+                prize = "💻 [14.5%] 대박! 주인장이 원하는 프로그램 만들어 줌!";
+            } else if (rand < 40.0) {
+                prize = "🍖 [20.0%] 맛있는 간식 (1~2개) 획득!";
+            } else {
+                prize = "꽝"; isWin = false;
+            }
+
+            if (isWin) {
+                const now = new Date();
+                const timeString = now.getFullYear() + "-" + String(now.getMonth()+1).padStart(2,'0') + "-" + String(now.getDate()).padStart(2,'0') + " " + String(now.getHours()).padStart(2,'0') + ":" + String(now.getMinutes()).padStart(2,'0') + ":" + String(now.getSeconds()).padStart(2,'0');
+                const secureCode = "TICKET_HASH_" + Math.random().toString(36).substring(2, 10).toUpperCase() + "_" + now.getTime().toString(36).toUpperCase();
+
+                gameState.myTickets.push({ prize: prize, time: timeString, code: secureCode });
+                updateUI();
+
+                el.gachaResult.innerHTML = prize + '<br><span class="text-[11px] text-purple-600 font-normal">🎟️ 티켓함에 저장되었습니다!</span>';
+                el.gachaResult.className = "mt-3 text-center text-xs font-bold text-orange-600 min-h-[40px]";
+            } else {
+                el.gachaResult.innerText = "🐾 꽝! 댕댕이가 위로 한마디 쓰는 중...";
+                el.gachaResult.className = "mt-3 text-center text-xs font-bold text-slate-500 min-h-[40px]";
+                try {
+                    const response = await fetch('/api/generate');
+                    const data = await response.json();
+                    el.gachaResult.innerText = '💨 꽝! 댕댕이의 한마디:\n"' + data.message + '"';
+                } catch (err) {
+                    el.gachaResult.innerText = "💨 꽝! 힘내라 멍! (다음 기회에)";
+                }
+            }
+        }
+
+        el.gachaBtn.addEventListener('mousedown', startPress);
+        el.gachaBtn.addEventListener('mouseup', cancelPress);
+        el.gachaBtn.addEventListener('mouseleave', cancelPress);
+        el.gachaBtn.addEventListener('touchstart', (e) => { e.preventDefault(); startPress(); });
+        el.gachaBtn.addEventListener('touchend', (e) => { e.preventDefault(); cancelPress(); });
+
+        el.showRateBtn.onclick = () => el.rateModal.className = "fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50";
+        el.closeRateBtn.onclick = () => el.rateModal.className = "fixed inset-0 bg-black/50 hidden items-center justify-center p-4 z-50";
+
+        el.showTicketBoxBtn.onclick = () => {
+            el.ticketListContainer.innerHTML = "";
+            gameState.myTickets.forEach((t, idx) => {
+                const card = document.createElement('div');
+                card.className = "bg-purple-50 border-2 border-purple-200 rounded-xl p-2.5 text-xs";
+                card.innerHTML = '<div class="font-bold text-purple-900 mb-1">🎫 당첨 상품 #' + (idx+1) + '</div>' +
+                                 '<div class="text-slate-700 font-semibold mb-1">' + t.prize + '</div>' +
+                                 '<div class="text-slate-500 text-[10px] mb-1">⏱️ 당첨 시간: ' + t.time + '</div>' +
+                                 '<div class="bg-white p-1 rounded border border-purple-100 font-mono text-[10px] text-purple-700 select-all">🔑 CODE: ' + t.code + '</div>';
+                el.ticketListContainer.appendChild(card);
+            });
+            el.ticketModal.className = "fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50";
+        };
+        el.closeTicketBtn.onclick = () => el.ticketModal.className = "fixed inset-0 bg-black/50 hidden items-center justify-center p-4 z-50";
+
+        loadStage();
+    </script>
+</body>
+</html>
