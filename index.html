@@ -13,20 +13,25 @@
 </head>
 <body class="bg-amber-50 text-slate-800 min-h-screen flex flex-col items-center justify-between p-4 selection:bg-amber-200">
 
-    <!-- 로그인 / 회원가입 모달 (기본적으로 강제 표시) -->
+    <!-- 로그인 / 회원가입 모달 (기본은 회원가입 창이 먼저 뜸) -->
     <div id="auth-modal" class="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
         <div class="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border-4 border-amber-400 text-center flex flex-col items-center">
             <span class="text-4xl mb-2">🐶</span>
-            <h3 id="auth-title" class="text-xl font-bold text-amber-600 mb-1">댕댕이의 미니게임 로그인</h3>
-            <p id="auth-desc" class="text-xs text-slate-500 mb-4">계정에 로그인하여 모험을 시작하세요!</p>
+            <h3 id="auth-title" class="text-xl font-bold text-amber-600 mb-1">댕댕이의 미니게임 회원가입</h3>
+            <p id="auth-desc" class="text-xs text-slate-500 mb-4">계정을 만들고 모험을 시작하세요!</p>
             
             <div class="w-full flex flex-col gap-3 mb-4">
-                <input id="auth-email" type="email" placeholder="이메일 주소" class="w-full border-2 border-amber-300 rounded-xl p-3 text-sm text-center font-bold focus:outline-none focus:border-amber-500">
+                <!-- 회원가입 시: 이메일 / 비밀번호 / 닉네임 순서 -->
+                <input id="auth-email" type="text" placeholder="이메일 주소" class="w-full border-2 border-amber-300 rounded-xl p-3 text-sm text-center font-bold focus:outline-none focus:border-amber-500">
                 <input id="auth-password" type="password" placeholder="비밀번호 (6자리 이상)" class="w-full border-2 border-amber-300 rounded-xl p-3 text-sm text-center font-bold focus:outline-none focus:border-amber-500">
+                
+                <div id="nickname-container" class="w-full">
+                    <input id="auth-nickname" type="text" placeholder="사용할 닉네임 (예: 멋진댕댕이)" class="w-full border-2 border-amber-300 rounded-xl p-3 text-sm text-center font-bold focus:outline-none focus:border-amber-500 bg-amber-50/50">
+                </div>
             </div>
 
-            <button id="auth-submit-btn" class="w-full bg-amber-500 hover:bg-amber-600 text-white py-3 rounded-xl text-sm font-bold shadow-md transition-colors cursor-pointer mb-2">로그인하기 🚀</button>
-            <button id="auth-toggle-btn" class="text-xs text-slate-500 hover:text-amber-600 underline cursor-pointer bg-transparent border-none">계정이 없으신가요? 회원가입하기</button>
+            <button id="auth-submit-btn" class="w-full bg-amber-500 hover:bg-amber-600 text-white py-3 rounded-xl text-sm font-bold shadow-md transition-colors cursor-pointer mb-2">회원가입 하기 ✨</button>
+            <button id="auth-toggle-btn" class="text-xs text-slate-500 hover:text-amber-600 underline cursor-pointer bg-transparent border-none">이미 계정이 있으신가요? 로그인하기</button>
         </div>
     </div>
 
@@ -148,8 +153,10 @@
                 <div class="flex gap-2 border-b border-slate-200 pb-2">
                     <button id="admin-tab-ticket" class="flex-1 py-1.5 rounded-lg bg-slate-800 text-white text-xs font-bold cursor-pointer">🎟️ 티켓 관리</button>
                     <button id="admin-tab-board" class="flex-1 py-1.5 rounded-lg bg-slate-200 text-slate-700 text-xs font-bold cursor-pointer">📝 게시판 관리</button>
+                    <button id="admin-tab-user" class="flex-1 py-1.5 rounded-lg bg-slate-200 text-slate-700 text-xs font-bold cursor-pointer">🔍 유저 검색</button>
                 </div>
 
+                <!-- 1. 티켓 관리 탭 -->
                 <div id="admin-ticket-content" class="flex flex-col gap-2 flex-1 overflow-y-auto">
                     <p class="text-[11px] text-slate-500 text-center">발급된 티켓 코드를 입력하여 사용 여부를 확인하세요.</p>
                     <input id="admin-code-input" type="text" placeholder="티켓 코드 입력 (예: TICKET_...)" class="w-full border border-slate-300 rounded-xl p-2 text-xs font-mono uppercase">
@@ -157,9 +164,18 @@
                     <div id="admin-result-box" class="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs min-h-[90px] flex flex-col justify-center items-center text-center text-slate-500">코드를 입력하고 조회 버튼을 누르세요.</div>
                 </div>
 
+                <!-- 2. 게시판 관리 탭 -->
                 <div id="admin-board-content" class="hidden flex-col gap-2 flex-1 overflow-y-auto pr-1">
                     <p class="text-[11px] text-slate-500 text-center">실시간 건의사항 강제 삭제 및 답글 관리</p>
                     <div id="admin-board-list" class="flex flex-col gap-2.5"></div>
+                </div>
+
+                <!-- 3. 유저 검색 탭 (닉네임으로 이메일 찾기) -->
+                <div id="admin-user-content" class="hidden flex-col gap-2 flex-1 overflow-y-auto">
+                    <p class="text-[11px] text-slate-500 text-center">유저의 닉네임을 입력하여 실제 가입된 이메일을 확인하세요.</p>
+                    <input id="admin-user-search-input" type="text" placeholder="찾을 닉네임 입력" class="w-full border border-slate-300 rounded-xl p-2 text-xs text-center font-bold">
+                    <button id="admin-user-search-btn" class="w-full bg-purple-600 text-white py-2 rounded-xl text-xs font-bold hover:bg-purple-700 cursor-pointer">이메일 찾기</button>
+                    <div id="admin-user-result-box" class="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs min-h-[70px] flex flex-col justify-center items-center text-center text-slate-500">닉네임을 입력하고 검색하세요.</div>
                 </div>
             </div>
 
@@ -170,7 +186,7 @@
     <!-- Firebase 및 게임 로직 스크립트 -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc, onSnapshot, query, orderBy, where } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc, setDoc, getDoc, onSnapshot, query, orderBy, where } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
         import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
         const firebaseConfig = {
@@ -191,15 +207,17 @@
         window.auth = auth;
 
         const gameState = { 
-            userEmail: "", userId: "", stage: 1, maxStage: 3, level: 1, tickets: 0, myTickets: [], 
+            userEmail: "", userId: "", userNickname: "댕댕이", stage: 1, maxStage: 3, level: 1, tickets: 0, myTickets: [], 
             currentTab: 'game', gachaPressTimer: null, gachaProgressInterval: null, 
-            gachaHoldTime: 0, requiredHoldTime: 15, maxDailyGacha: 4, masterKey: "loveash", isRegistering: false
+            gachaHoldTime: 0, requiredHoldTime: 15, maxDailyGacha: 4, masterKey: "loveash", isRegistering: true
         };
 
         const el = {
             authModal: document.getElementById('auth-modal'),
             authTitle: document.getElementById('auth-title'),
             authDesc: document.getElementById('auth-desc'),
+            nicknameContainer: document.getElementById('nickname-container'),
+            authNickname: document.getElementById('auth-nickname'),
             authEmail: document.getElementById('auth-email'),
             authPassword: document.getElementById('auth-password'),
             authSubmitBtn: document.getElementById('auth-submit-btn'),
@@ -217,14 +235,15 @@
             adminModal: document.getElementById('admin-modal'), showAdminBtn: document.getElementById('show-admin-btn'), closeAdminBtn: document.getElementById('close-admin-btn'),
             adminAuthSection: document.getElementById('admin-auth-section'), adminMasterkeyInput: document.getElementById('admin-masterkey-input'), adminLoginBtn: document.getElementById('admin-login-btn'),
             adminPanelSection: document.getElementById('admin-panel-section'),
-            adminTabTicket: document.getElementById('admin-tab-ticket'), adminTabBoard: document.getElementById('admin-tab-board'),
-            adminTicketContent: document.getElementById('admin-ticket-content'), adminBoardContent: document.getElementById('admin-board-content'),
+            adminTabTicket: document.getElementById('admin-tab-ticket'), adminTabBoard: document.getElementById('admin-tab-board'), adminTabUser: document.getElementById('admin-tab-user'),
+            adminTicketContent: document.getElementById('admin-ticket-content'), adminBoardContent: document.getElementById('admin-board-content'), adminUserContent: document.getElementById('admin-user-content'),
             adminCodeInput: document.getElementById('admin-code-input'), adminCheckBtn: document.getElementById('admin-check-btn'), adminResultBox: document.getElementById('admin-result-box'),
+            adminUserSearchInput: document.getElementById('admin-user-search-input'), adminUserSearchBtn: document.getElementById('admin-user-search-btn'), adminUserResultBox: document.getElementById('admin-user-result-box'),
             adminBoardList: document.getElementById('admin-board-list'),
             boardInput: document.getElementById('board-input'), boardSubmitBtn: document.getElementById('board-submit-btn'), boardListContainer: document.getElementById('board-list-container')
         };
 
-        function loadUserData() {
+        function loadUserDataLocally() {
             const savedData = localStorage.getItem('dog_game_user_' + gameState.userId);
             if (savedData) {
                 try {
@@ -236,76 +255,114 @@
             }
         }
 
-        function saveUserData() {
+        function saveUserDataLocally() {
             if (!gameState.userId) return;
             localStorage.setItem('dog_game_user_' + gameState.userId, JSON.stringify({
                 tickets: gameState.tickets, level: gameState.level, stage: gameState.stage
             }));
         }
 
-        // 로그인 상태 변화 감지
-        onAuthStateChanged(auth, (user) => {
+        onAuthStateChanged(auth, async (user) => {
             if (user) {
                 gameState.userId = user.uid;
                 gameState.userEmail = user.email;
-                loadUserData();
+                
+                try {
+                    const userDocSnap = await getDoc(doc(db, "users_profile", user.uid));
+                    if (userDocSnap.exists()) {
+                        gameState.userNickname = userDocSnap.data().nickname || user.email.split('@')[0];
+                    } else {
+                        gameState.userNickname = user.email.split('@')[0];
+                    }
+                } catch(e) {
+                    gameState.userNickname = user.email.split('@')[0];
+                }
+
+                loadUserDataLocally();
                 el.authModal.classList.add('hidden');
                 el.welcomeBanner.classList.remove('hidden');
-                el.userWelcomeText.innerText = `${gameState.userEmail} 님 환영합니다`;
+                el.userWelcomeText.innerText = `닉네임: [${gameState.userNickname}] (${gameState.userEmail}) 님 환영합니다`;
                 loadStage();
                 loadMyFirebaseTickets();
             } else {
                 gameState.userId = "";
                 gameState.userEmail = "";
+                gameState.userNickname = "댕댕이";
                 el.authModal.classList.remove('hidden');
                 el.welcomeBanner.classList.add('hidden');
             }
         });
 
-        // 로그인/회원가입 전환 토글 버튼
+        // 회원가입(기본) <-> 로그인 창 전환
         el.authToggleBtn.onclick = () => {
             gameState.isRegistering = !gameState.isRegistering;
             if (gameState.isRegistering) {
                 el.authTitle.innerText = "댕댕이의 미니게임 회원가입";
-                el.authDesc.innerText = "새로운 계정을 만들어 모험을 시작하세요!";
+                el.authDesc.innerText = "계정을 만들고 모험을 시작하세요!";
+                el.authEmail.placeholder = "이메일 주소";
+                el.nicknameContainer.classList.remove('hidden');
                 el.authSubmitBtn.innerText = "회원가입 하기 ✨";
                 el.authToggleBtn.innerText = "이미 계정이 있으신가요? 로그인하기";
             } else {
                 el.authTitle.innerText = "댕댕이의 미니게임 로그인";
-                el.authDesc.innerText = "계정에 로그인하여 모험을 시작하세요!";
+                el.authDesc.innerText = "가입한 닉네임과 비밀번호를 입력하세요!";
+                el.authEmail.placeholder = "가입한 닉네임 또는 이메일";
+                el.nicknameContainer.classList.add('hidden');
                 el.authSubmitBtn.innerText = "로그인하기 🚀";
                 el.authToggleBtn.innerText = "계정이 없으신가요? 회원가입하기";
             }
         };
 
-        // 인증 버튼 클릭 (로그인 또는 회원가입 처리)
         el.authSubmitBtn.onclick = async () => {
-            const email = el.authEmail.value.trim();
+            let inputId = el.authEmail.value.trim();
             const password = el.authPassword.value.trim();
-            if (!email || !password) {
-                alert("이메일과 비밀번호를 모두 입력해주세요!");
+            const nickname = el.authNickname.value.trim();
+
+            if (!inputId || !password) {
+                alert("빈 칸을 모두 입력해주세요!");
                 return;
             }
 
             try {
                 if (gameState.isRegistering) {
-                    await createUserWithEmailAndPassword(auth, email, password);
+                    if (!nickname) {
+                        alert("사용하실 닉네임을 입력해주세요!");
+                        return;
+                    }
+                    const userCredential = await createUserWithEmailAndPassword(auth, inputId, password);
+                    await setDoc(doc(db, "users_profile", userCredential.user.uid), {
+                        uid: userCredential.user.uid,
+                        email: inputId,
+                        nickname: nickname,
+                        createdAt: Date.now()
+                    });
                     alert("회원가입 및 로그인 성공!");
                 } else {
-                    await signInWithEmailAndPassword(auth, email, password);
+                    let targetEmail = inputId;
+                    // 닉네임으로 로그인을 시도한 경우 파이어베이스에서 이메일 조회
+                    if (!inputId.includes('@')) {
+                        const usersQuery = query(collection(db, "users_profile"), where("nickname", "==", inputId));
+                        const snapshot = await getDocs(usersQuery);
+                        if (snapshot.empty) {
+                            alert("존재하지 않는 닉네임입니다. 올바른 닉네임이나 이메일을 입력해주세요.");
+                            return;
+                        }
+                        snapshot.forEach((docSnap) => {
+                            targetEmail = docSnap.data().email;
+                        });
+                    }
+                    await signInWithEmailAndPassword(auth, targetEmail, password);
                 }
             } catch (error) {
                 alert("오류 발생: " + error.message);
             }
         };
 
-        // 로그아웃 버튼
         el.logoutBtn.onclick = async () => {
             await signOut(auth);
             window.location.reload();
         };
 
-        // 1. 건의함 글 등록
         el.boardSubmitBtn.onclick = async () => {
             const text = el.boardInput.value.trim();
             if (!text) { alert("내용을 입력해주세요!"); return; }
@@ -315,7 +372,8 @@
             
             try {
                 await addDoc(collection(db, "board_posts"), {
-                    writer: gameState.userEmail ? gameState.userEmail.split('@')[0] : '익명의 댕댕이',
+                    writer: gameState.userNickname,
+                    writerEmail: gameState.userEmail,
                     content: text,
                     time: timeString,
                     reply: "",
@@ -328,7 +386,6 @@
             }
         };
 
-        // 2. 건의함 실시간 수신
         const q = query(collection(db, "board_posts"), orderBy("createdAt", "desc"));
         onSnapshot(q, (snapshot) => {
             el.boardListContainer.innerHTML = '';
@@ -359,7 +416,6 @@
             });
         });
 
-        // 3. 내 티켓 목록 실시간 동기화
         async function loadMyFirebaseTickets() {
             if (!gameState.userEmail) return;
             const ticketQuery = query(collection(db, "user_tickets"), where("owner", "==", gameState.userEmail));
@@ -371,7 +427,6 @@
             el.showTicketBoxBtn.classList.toggle('hidden', gameState.myTickets.length === 0);
         }
 
-        // 4. 관리자 티켓 조회 기능
         el.adminCheckBtn.onclick = async () => {
             const code = el.adminCodeInput.value.trim().toUpperCase();
             if (!code) { alert("코드를 입력하세요!"); return; }
@@ -392,7 +447,7 @@
             });
 
             el.adminResultBox.innerHTML = `
-                <div class="font-bold mb-0.5 text-purple-700">소유자: ${ticketData.owner}</div>
+                <div class="font-bold mb-0.5 text-purple-700">소유자 이메일: ${ticketData.owner}</div>
                 <div class="font-bold mb-1">${ticketData.prize}</div>
                 <div class="text-[11px] text-slate-500 mb-2">상태: ${ticketData.isUsed ? '<span class="text-red-500 font-bold">사용완료</span>' : '<span class="text-green-600 font-bold">미사용</span>'}</div>
                 <button id="firebase-toggle-btn" class="w-full ${ticketData.isUsed ? 'bg-green-600' : 'bg-red-600'} text-white py-1.5 rounded-lg text-xs font-bold cursor-pointer">
@@ -406,6 +461,26 @@
                 alert("티켓 상태가 변경되었습니다!");
                 el.adminCheckBtn.click();
             };
+        };
+
+        el.adminUserSearchBtn.onclick = async () => {
+            const searchNickname = el.adminUserSearchInput.value.trim();
+            if (!searchNickname) { alert("검색할 닉네임을 입력하세요!"); return; }
+
+            const usersQuery = query(collection(db, "users_profile"), where("nickname", "==", searchNickname));
+            const snapshot = await getDocs(usersQuery);
+
+            if (snapshot.empty) {
+                el.adminUserResultBox.innerHTML = '<span class="text-red-500 font-bold">해당 닉네임을 가진 유저가 없습니다.</span>';
+                return;
+            }
+
+            let resultHtml = "";
+            snapshot.forEach((docSnap) => {
+                const uData = docSnap.data();
+                resultHtml += `<div class="mb-1">닉네임: <b class="text-amber-600">${uData.nickname}</b></div><div>이메일: <b class="text-purple-700 select-all">${uData.email}</b></div><hr class="my-1 border-slate-200">`;
+            });
+            el.adminUserResultBox.innerHTML = resultHtml;
         };
 
         async function loadAdminBoardList() {
@@ -424,7 +499,7 @@
                 
                 card.innerHTML = `
                     <div class="flex justify-between items-center text-[11px]">
-                        <span class="font-bold text-amber-600">🐶 ${p.writer}</span>
+                        <span class="font-bold text-amber-600">🐶 닉네임: ${p.writer} ${p.writerEmail ? '('+p.writerEmail+')' : ''}</span>
                         <span class="text-slate-400">${p.time}</span>
                     </div>
                     <div class="text-slate-700 font-medium">${p.content}</div>
@@ -480,7 +555,7 @@
             el.levelProgress.style.width = ((gameState.stage - 1) / gameState.maxStage) * 100 + "%";
             el.showTicketBoxBtn.classList.toggle('hidden', gameState.myTickets.length === 0);
             el.dailyLimitText.innerHTML = `오늘 남은 뽑기 횟수: <b class="text-purple-600">${getRemainingGachaCount()} / ${gameState.maxDailyGacha}회</b><br>버튼을 <b>꾹~ 누르고 있으면</b> 캡슐이 열립니다!`;
-            saveUserData();
+            saveUserDataLocally();
         }
 
         function switchTab(tab) {
@@ -586,7 +661,6 @@
             });
         }
 
-        // 뽑기 확률 및 당첨 처리 로직
         function startPress() {
             if (getRemainingGachaCount() <= 0 || gameState.tickets <= 0) {
                 el.gachaResult.innerText = "⏳ 횟수 또는 뽑기권이 부족합니다!";
@@ -625,7 +699,7 @@
             if (prize !== "꽝") {
                 const now = new Date();
                 const secureCode = "TICKET_" + Math.random().toString(36).substring(2, 8).toUpperCase();
-                const newTicket = { owner: gameState.userEmail, prize, time: now.toLocaleString(), code: secureCode, isUsed: false };
+                const newTicket = { owner: gameState.userEmail, nickname: gameState.userNickname, prize, time: now.toLocaleString(), code: secureCode, isUsed: false };
                 
                 try {
                     await addDoc(collection(db, "user_tickets"), newTicket);
@@ -684,14 +758,20 @@
         function switchAdminTab(tabName) {
             el.adminTabTicket.className = tabName === 'ticket' ? "flex-1 py-1.5 rounded-lg bg-slate-800 text-white text-xs font-bold cursor-pointer" : "flex-1 py-1.5 rounded-lg bg-slate-200 text-slate-700 text-xs font-bold cursor-pointer";
             el.adminTabBoard.className = tabName === 'board' ? "flex-1 py-1.5 rounded-lg bg-slate-800 text-white text-xs font-bold cursor-pointer" : "flex-1 py-1.5 rounded-lg bg-slate-200 text-slate-700 text-xs font-bold cursor-pointer";
+            el.adminTabUser.className = tabName === 'user' ? "flex-1 py-1.5 rounded-lg bg-slate-800 text-white text-xs font-bold cursor-pointer" : "flex-1 py-1.5 rounded-lg bg-slate-200 text-slate-700 text-xs font-bold cursor-pointer";
+            
             el.adminTicketContent.classList.toggle('hidden', tabName !== 'ticket');
             el.adminTicketContent.classList.toggle('flex', tabName === 'ticket');
             el.adminBoardContent.classList.toggle('hidden', tabName !== 'board');
             el.adminBoardContent.classList.toggle('flex', tabName === 'board');
+            el.adminUserContent.classList.toggle('hidden', tabName !== 'user');
+            el.adminUserContent.classList.toggle('flex', tabName === 'user');
+
             if (tabName === 'board') loadAdminBoardList();
         }
         el.adminTabTicket.onclick = () => switchAdminTab('ticket');
         el.adminTabBoard.onclick = () => switchAdminTab('board');
+        el.adminTabUser.onclick = () => switchAdminTab('user');
     </script>
 </body>
 </html>
