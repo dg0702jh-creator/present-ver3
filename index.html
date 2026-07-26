@@ -1,4 +1,4 @@
- <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
@@ -128,31 +128,330 @@
         el.tabGame.onclick = () => switchTab('game');
         el.tabGacha.onclick = () => switchTab('gacha');
 
-        // 미니게임 3종 정의 (게임 1: 댕댕이 상식 퀴즈 챌린지)
-        const games = {
-            1: {
-                title: "🐾 1단계: 댕댕이 상식 퀴즈 챌린지", 
-                desc: "총 <b>3문제</b>의 퀴즈를 모두 맞히세요!<br>틀리면 처음부터 다시 도전합니다.",
-                start: function(onClear) {
-                    const quizList = [
-                        { q: "강아지는 단맛보다 짠맛을 더 강하게 느낀다?", answer: false, hint: "강아지는 짠맛보다 단맛/신맛에 민감해요!" },
-                        { q: "강아지가 꼬리를 흔드는 것은 무조건 기분 좋다는 뜻이다?", answer: false, hint: "경계하거나 긴장할 때도 흔들 수 있어요!" },
-                        { q: "강아지의 후각은 사람보다 수만~수백만 배 뛰어나다?", answer: true, hint: "정답입니다! 냄새를 아주 잘 맡아요." }
-                    ];
-                    let currentQuizIdx = 0;
+        // 미니게임 3종 정의 (안전하게 분리된 구조)
+        const game1Obj = {
+            title: "🐾 1단계: 댕댕이 상식 퀴즈 챌린지", 
+            desc: "총 <b>3문제</b>의 퀴즈를 모두 맞히세요!<br>틀리면 처음부터 다시 도전합니다.",
+            start: function(onClear) {
+                const quizList = [
+                    { q: "강아지는 단맛보다 짠맛을 더 강하게 느낀다?", answer: false, hint: "강아지는 짠맛보다 단맛/신맛에 민감해요!" },
+                    { q: "강아지가 꼬리를 흔드는 것은 무조건 기분 좋다는 뜻이다?", answer: false, hint: "경계하거나 긴장할 때도 흔들 수 있어요!" },
+                    { q: "강아지의 후각은 사람보다 수만~수백만 배 뛰어나다?", answer: true, hint: "정답입니다! 냄새를 아주 잘 맡아요." }
+                ];
+                let currentQuizIdx = 0;
 
-                    function showQuiz() {
-                        if (currentQuizIdx >= quizList.length) {
+                function showQuiz() {
+                    if (currentQuizIdx >= quizList.length) {
+                        onClear();
+                        return;
+                    }
+                    const qObj = quizList[currentQuizIdx];
+                    el.gameContent.innerHTML = '<div class="text-sm font-bold mb-1">' + game1Obj.title + '</div>' +
+                        '<div class="text-xs text-slate-500 mb-3">문제 ' + (currentQuizIdx + 1) + ' / 3</div>' +
+                        '<div class="bg-amber-50 p-4 rounded-xl border border-amber-200 mb-4 text-base font-bold text-slate-700 min-h-[70px] flex items-center justify-center">' + qObj.q + '</div>';
+
+                    el.gameControls.innerHTML = '';
+                    const btnO = document.createElement('button');
+                    btnO.className = "w-full bg-green-500 text-white font-bold py-3 rounded-xl text-base shadow-md active:scale-95 mb-2";
+                    btnO.innerText = "⭕ O (맞음)";
+                    btnO.onclick = () => checkAnswer(true);
+
+                    const btnX = document.createElement('button');
+                    btnX.className = "w-full bg-red-400 text-white font-bold py-3 rounded-xl text-base shadow-md active:scale-95";
+                    btnX.innerText = "❌ X (틀림)";
+                    btnX.onclick = () => checkAnswer(false);
+
+                    el.gameControls.appendChild(btnO);
+                    el.gameControls.appendChild(btnX);
+                }
+
+                function checkAnswer(userChoice) {
+                    const qObj = quizList[currentQuizIdx];
+                    if (userChoice === qObj.answer) {
+                        currentQuizIdx++;
+                        showQuiz();
+                    } else {
+                        alert("틀렸습니다! 힌트: " + qObj.hint + "\n처음부터 다시 도전하세요!");
+                        loadStage();
+                    }
+                }
+
+                showQuiz();
+            }
+        };
+
+        const game2Obj = {
+            title: "👨‍🍳 2단계: 뭉치의 멍멍 셰프", 
+            desc: "<b>안내:</b> 담아야 하는 재료는 그릇이 <b>금색(🏆골든 그릇)</b>입니다!<br>지나가는 그릇 중 금색만 골라 3번 담으세요!",
+            start: function(onClear) {
+                let successCount = 0;
+                const target = 3;
+                let speedMultiplier = gameState.level === 1 ? 1 : (gameState.level === 2 ? 3 : 5);
+                
+                const itemPool = [
+                    { name: "🏆 금색 뼈다귀 그릇", isGold: true },
+                    { name: "☠️ 썩은 고기 그릇", isGold: false },
+                    { name: "🫙 텅 빈 그릇", isGold: false },
+                    { name: "🏆 금색 프리미엄 간식 그릇", isGold: true }
+                ];
+
+                let currentItem = itemPool[0];
+
+                el.gameContent.innerHTML = '<div class="text-sm font-bold mb-1">' + this.title + '</div>' +
+                    '<div class="text-xs text-slate-500 mb-2">' + this.desc + '</div>' +
+                    '<div class="bg-purple-50 p-3 rounded-xl border border-purple-200 mb-3">' +
+                        '<div class="text-xs text-purple-700 font-bold mb-1">현재 다가오는 그릇 (속도 x' + speedMultiplier + ')</div>' +
+                        '<div id="bowl-box" class="text-xl font-black text-amber-600 animate-pulse">' + currentItem.name + '</div>' +
+                    '</div>' +
+                    '<div class="text-sm font-bold text-slate-700">골든 그릇 수집: <span id="bowl-count">0</span> / 3</div>';
+
+                el.gameControls.innerHTML = '';
+                const btn = document.createElement('button');
+                btn.className = "w-full bg-purple-600 text-white font-bold py-3 rounded-xl text-lg shadow-md active:scale-95";
+                btn.innerText = "📥 그릇 담기 (금색만 클릭!)";
+                
+                btn.onclick = () => {
+                    if (currentItem.isGold) {
+                        successCount++;
+                        document.getElementById('bowl-count').innerText = successCount;
+                        if (successCount >= target) {
+                            clearInterval(itemMover);
+                            btn.onclick = null;
                             onClear();
                             return;
                         }
-                        const qObj = quizList[currentQuizIdx];
-                        el.gameContent.innerHTML = '<div class="text-sm font-bold mb-1">' + games[1].title + '</div>' +
-                            '<div class="text-xs text-slate-500 mb-3">문제 ' + (currentQuizIdx + 1) + ' / 3</div>' +
-                            '<div class="bg-amber-50 p-4 rounded-xl border border-amber-200 mb-4 text-base font-bold text-slate-700 min-h-[70px] flex items-center justify-center">' + qObj.q + '</div>';
+                    } else {
+                        alert("앗! 썩었거나 빈 그릇을 담았습니다! 다시 시도하세요.");
+                    }
+                    currentItem = itemPool[Math.floor(Math.random() * itemPool.length)];
+                    document.getElementById('bowl-box').innerText = currentItem.name;
+                };
+                el.gameControls.appendChild(btn);
 
-                        el.gameControls.innerHTML = '';
-                        const btnO = document.createElement('button');
-                        btnO.className = "w-full bg-green-500 text-white font-bold py-3 rounded-xl text-base shadow-md active:scale-95 mb-2";
-                        btnO.innerText = "⭕ O (맞음)";
-                        btnO.onclick = () => checkAnswer(true);
+                let intervalTime = 2000 / speedMultiplier;
+                const itemMover = setInterval(() => {
+                    currentItem = itemPool[Math.floor(Math.random() * itemPool.length)];
+                    const bBox = document.getElementById('bowl-box');
+                    if (bBox) bBox.innerText = currentItem.name;
+                }, intervalTime);
+            }
+        };
+
+        const game3Obj = {
+            title: "🚩 3단계: 우리 동네 댕댕이 대장", 
+            desc: "AI 상대와 연타 대결!<br>레벨 1은 40초 안에 20점을 얻어야 합니다.<br>(레벨업 시 제한시간 5초 단축 & 목표 점수 5점 증가)",
+            start: function(onClear) {
+                let timeLimit = 40 - (gameState.level - 1) * 5;
+                let targetScore = 20 + (gameState.level - 1) * 5;
+                let myScore = 0;
+                let aiScore = 0;
+                let gameActive = true;
+
+                el.gameContent.innerHTML = '<div class="text-sm font-bold mb-1">' + this.title + '</div>' +
+                    '<div class="text-xs text-slate-500 mb-2">' + this.desc + '</div>' +
+                    '<div class="flex justify-around items-center bg-amber-50 p-2 rounded-xl border border-amber-200 mb-2 text-xs font-bold">' +
+                        '<div>🐶 나: <span id="my-sc" class="text-amber-600 text-base">0</span>/' + targetScore + '점</div>' +
+                        '<div>⏳ 제한시간: <span id="time-sc" class="text-red-500 text-base">' + timeLimit + '</span>초</div>' +
+                        '<div>🤖 AI: <span id="ai-sc" class="text-slate-600 text-base">0</span>점</div>' +
+                    '</div>' +
+                    '<div class="w-full bg-slate-200 h-2.5 rounded-full overflow-hidden relative">' +
+                        '<div id="battle-bar" class="bg-amber-500 h-full w-[50%] transition-all"></div>' +
+                    '</div>';
+
+                let aiSpeed = 300 - (gameState.level - 1) * 50;
+                const aiInterval = setInterval(() => {
+                    if (!gameActive) return;
+                    aiScore += 1;
+                    if(aiScore > targetScore) aiScore = targetScore;
+                    const aiEl = document.getElementById('ai-sc');
+                    if(aiEl) aiEl.innerText = aiScore;
+
+                    if (aiScore >= targetScore && myScore < targetScore) {
+                        gameActive = false;
+                        clearInterval(aiInterval);
+                        clearInterval(countDownTimer);
+                        alert("AI가 먼저 목표 점수를 달성했습니다! 다시 도전해 주세요.");
+                        loadStage();
+                    }
+                }, Math.max(aiSpeed, 100));
+
+                const countDownTimer = setInterval(() => {
+                    if (!gameActive) return;
+                    timeLimit--;
+                    const tEl = document.getElementById('time-sc');
+                    if(tEl) tEl.innerText = timeLimit;
+
+                    if (timeLimit <= 0 && myScore < targetScore) {
+                        gameActive = false;
+                        clearInterval(aiInterval);
+                        clearInterval(countDownTimer);
+                        alert("시간 초과! 패배했습니다. 다시 도전하세요.");
+                        loadStage();
+                    }
+                }, 1000);
+
+                el.gameControls.innerHTML = '';
+                const btn = document.createElement('button');
+                btn.className = "w-full bg-amber-500 text-white font-bold py-4 rounded-xl text-xl shadow-md active:scale-95";
+                btn.innerText = "🔥 빛의 속도로 연타하기!";
+                
+                btn.onclick = () => {
+                    if (!gameActive) return;
+                    myScore++;
+                    const myEl = document.getElementById('my-sc');
+                    if(myEl) myEl.innerText = myScore;
+
+                    let ratio = (myScore / (myScore + aiScore || 1)) * 100;
+                    const bar = document.getElementById('battle-bar');
+                    if(bar) bar.style.width = ratio + '%';
+
+                    if (myScore >= targetScore) {
+                        gameActive = false;
+                        clearInterval(aiInterval);
+                        clearInterval(countDownTimer);
+                        btn.onclick = null;
+                        onClear();
+                    }
+                };
+                el.gameControls.appendChild(btn);
+            }
+        };
+
+        const games = { 1: game1Obj, 2: game2Obj, 3: game3Obj };
+
+        function loadStage() {
+            updateUI();
+            if (gameState.stage > gameState.maxStage) {
+                gameState.tickets += 2;
+                gameState.level += 1;
+                gameState.stage = 1;
+                updateUI();
+                
+                el.gameContent.innerHTML = '<div class="text-2xl font-bold text-orange-600 mb-2">🎉 모든 모험 클리어! 🎉</div>' +
+                    '<p class="text-slate-600 mb-1 text-sm">보상으로 <b>🔮 뽑기권 2장</b>이 지급되었습니다!</p>' +
+                    '<p class="text-xs text-purple-600 font-bold mb-3">아래 버튼을 눌러 LV.' + gameState.level + ' 모험을 시작하세요!</p>' +
+                    '<div class="text-3xl my-1">🎟️✨🎟️</div>';
+                el.gameControls.innerHTML = '';
+                const b = document.createElement('button');
+                b.className = "w-full bg-purple-600 text-white font-bold py-3 rounded-xl text-lg shadow-md";
+                b.innerText = "🚀 다음 레벨(LV." + gameState.level + ") 시작하기";
+                b.onclick = () => {
+                    loadStage();
+                };
+                el.gameControls.appendChild(b);
+                return;
+            }
+
+            games[gameState.stage].start(() => {
+                el.gameContent.innerHTML = '<div class="text-2xl font-bold text-green-600 mb-2">Stage Clear! ✨</div>' +
+                    '<p class="text-slate-600 text-sm">멋지게 단계를 돌파했습니다!</p><div class="text-3xl my-2">🐾</div>';
+                el.gameControls.innerHTML = '';
+                const b = document.createElement('button');
+                b.className = "w-full bg-green-500 text-white font-bold py-3 rounded-xl text-lg shadow-md";
+                b.innerText = "다음 단계로 이동";
+                b.onclick = () => {
+                    gameState.stage++;
+                    loadStage();
+                };
+                el.gameControls.appendChild(b);
+            });
+        }
+
+        // 캡슐 뽑기 로직
+        function startPress() {
+            if (gameState.tickets <= 0) {
+                el.gachaResult.innerText = "🎟️ 뽑기권이 부족합니다! 게임을 모두 클리어하고 오세요!";
+                el.gachaResult.className = "mt-3 text-center text-xs font-bold text-red-500 min-h-[40px]";
+                return;
+            }
+
+            gameState.gachaHoldTime = 0; el.gachaResult.innerText = ""; el.gachaProgress.style.width = '0%';
+            gameState.gachaProgressInterval = setInterval(() => {
+                gameState.gachaHoldTime++;
+                let pct = (gameState.gachaHoldTime / gameState.requiredHoldTime) * 100;
+                el.gachaProgress.style.width = Math.min(pct, 100) + '%';
+                if (gameState.gachaHoldTime >= gameState.requiredHoldTime) clearInterval(gameState.gachaProgressInterval);
+            }, 100);
+            gameState.gachaPressTimer = setTimeout(triggerGacha, gameState.requiredHoldTime * 100);
+        }
+
+        function cancelPress() {
+            clearTimeout(gameState.gachaPressTimer); clearInterval(gameState.gachaProgressInterval);
+            if (gameState.tickets > 0 && gameState.gachaHoldTime < gameState.requiredHoldTime) {
+                el.gachaProgress.style.width = '0%'; 
+                el.gachaResult.innerText = "조금 더 길게 꾹 누르고 계세요!";
+                el.gachaResult.className = "mt-3 text-center text-xs font-bold text-red-500 min-h-[40px]";
+            }
+        }
+
+        async function triggerGacha() {
+            if (gameState.tickets <= 0) return;
+            gameState.tickets--;
+            updateUI();
+
+            const rand = Math.random() * 100;
+            let prize = ""; let isWin = true;
+
+            if (rand < 0.5) {
+                prize = "👑 [0.5%] 대박! 2천원 이내의 원하는 것 (몰아서 쓰기 x)";
+            } else if (rand < 1.5) {
+                prize = "🍛 [1.0%] 축하합니다! 주인장이 밥 사줌!";
+            } else if (rand < 11.5) {
+                prize = "💻 [10.0%] 대박! 주인장한테 원하는 프로그램 말하면 만들어줌!";
+            } else if (rand < 31.5) {
+                prize = "🍖 [20.0%] 간식 1~2개 획득!";
+            } else {
+                prize = "꽝"; isWin = false;
+            }
+
+            if (isWin) {
+                const now = new Date();
+                const timeString = now.getFullYear() + "-" + String(now.getMonth()+1).padStart(2,'0') + "-" + String(now.getDate()).padStart(2,'0') + " " + String(now.getHours()).padStart(2,'0') + ":" + String(now.getMinutes()).padStart(2,'0') + ":" + String(now.getSeconds()).padStart(2,'0');
+                const secureCode = "TICKET_HASH_" + Math.random().toString(36).substring(2, 10).toUpperCase() + "_" + now.getTime().toString(36).toUpperCase();
+
+                gameState.myTickets.push({ prize: prize, time: timeString, code: secureCode });
+                updateUI();
+
+                el.gachaResult.innerHTML = prize + '<br><span class="text-[11px] text-purple-600 font-normal">🎟️ 티켓함에 저장되었습니다!</span>';
+                el.gachaResult.className = "mt-3 text-center text-xs font-bold text-orange-600 min-h-[40px]";
+            } else {
+                el.gachaResult.innerText = "🐾 꽝! 댕댕이가 위로 한마디 쓰는 중...";
+                el.gachaResult.className = "mt-3 text-center text-xs font-bold text-slate-500 min-h-[40px]";
+                try {
+                    const response = await fetch('/api/generate');
+                    const data = await response.json();
+                    el.gachaResult.innerText = '💨 꽝! 댕댕이의 한마디:\n"' + data.message + '"';
+                } catch (err) {
+                    el.gachaResult.innerText = "💨 꽝! 힘내라 멍! (다음 기회에)";
+                }
+            }
+        }
+
+        el.gachaBtn.addEventListener('mousedown', startPress);
+        el.gachaBtn.addEventListener('mouseup', cancelPress);
+        el.gachaBtn.addEventListener('mouseleave', cancelPress);
+        el.gachaBtn.addEventListener('touchstart', (e) => { e.preventDefault(); startPress(); });
+        el.gachaBtn.addEventListener('touchend', (e) => { e.preventDefault(); cancelPress(); });
+
+        el.showRateBtn.onclick = () => el.rateModal.className = "fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50";
+        el.closeRateBtn.onclick = () => el.rateModal.className = "fixed inset-0 bg-black/50 hidden items-center justify-center p-4 z-50";
+
+        el.showTicketBoxBtn.onclick = () => {
+            el.ticketListContainer.innerHTML = "";
+            gameState.myTickets.forEach((t, idx) => {
+                const card = document.createElement('div');
+                card.className = "bg-purple-50 border-2 border-purple-200 rounded-xl p-2.5 text-xs";
+                card.innerHTML = '<div class="font-bold text-purple-900 mb-1">🎫 당첨 상품 #' + (idx+1) + '</div>' +
+                                 '<div class="text-slate-700 font-semibold mb-1">' + t.prize + '</div>' +
+                                 '<div class="text-slate-500 text-[10px] mb-1">⏱️ 당첨 시간: ' + t.time + '</div>' +
+                                 '<div class="bg-white p-1 rounded border border-purple-100 font-mono text-[10px] text-purple-700 select-all">🔑 CODE: ' + t.code + '</div>';
+                el.ticketListContainer.appendChild(card);
+            });
+            el.ticketModal.className = "fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50";
+        };
+        el.closeTicketBtn.onclick = () => el.ticketModal.className = "fixed inset-0 bg-black/50 hidden items-center justify-center p-4 z-50";
+
+        loadStage();
+    </script>
+</body>
+</html>
