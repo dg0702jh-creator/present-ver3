@@ -1,4 +1,5 @@
-<!DOCTYPE html>
+
+    </script><!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
@@ -9,15 +10,25 @@
         @import url('https://fonts.googleapis.com/css2?family=Jua&display=swap');
         body { font-family: 'Jua', sans-serif; }
         .progress-bar { transition: width 0.1s linear; }
+        @keyframes moveLeft {
+            0% { transform: translateX(200px); }
+            100% { transform: translateX(-220px); }
+        }
+        .animate-obstacle {
+            animation: moveLeft 1.5s linear infinite;
+        }
     </style>
 </head>
 <body class="bg-amber-50 text-slate-800 min-h-screen flex flex-col items-center justify-between p-4 selection:bg-amber-200">
 
     <header class="w-full max-w-md bg-white rounded-2xl shadow-md p-4 text-center border-2 border-amber-200 relative">
-        <button id="show-rate-btn" class="absolute top-3 right-3 text-xs bg-amber-100 text-amber-800 px-2 py-1 rounded-lg hover:bg-amber-200">📊 확률표</button>
-        <div class="flex justify-between items-center mb-2 pr-12">
-            <span id="level-display" class="text-2xl text-amber-600 font-bold">🐶 LV. 1 모험</span>
-            <span id="ticket-display" class="text-sm bg-purple-100 text-purple-700 font-bold px-3 py-1 rounded-full">🎟️ 뽑기권: 0개</span>
+        <div class="absolute top-3 right-3 flex gap-1">
+            <button id="show-ticket-box-btn" class="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded-lg hover:bg-purple-200 hidden">🎟️ 티켓보관함</button>
+            <button id="show-rate-btn" class="text-xs bg-amber-100 text-amber-800 px-2 py-1 rounded-lg hover:bg-amber-200">📊 확률표</button>
+        </div>
+        <div class="flex justify-between items-center mb-2 pr-24">
+            <span id="level-display" class="text-xl text-amber-600 font-bold">🐶 LV. 1 모험</span>
+            <span id="ticket-display" class="text-xs bg-purple-100 text-purple-700 font-bold px-2.5 py-1 rounded-full">🎟️ 뽑기권: 0개</span>
         </div>
         <div class="flex justify-between items-center text-sm text-slate-500 mb-1">
             <span id="stage-display">1단계 미션 진행중</span>
@@ -78,14 +89,25 @@
         </div>
     </div>
 
+    <div id="ticket-modal" class="fixed inset-0 bg-black/50 hidden items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border-2 border-purple-400 max-h-[80vh] flex flex-col">
+            <h4 class="text-xl font-bold text-center mb-2 text-purple-700">🎟️ 내 상품 티켓 보관함</h4>
+            <p class="text-xs text-center text-slate-500 mb-4">당첨된 상품은 화면을 캡처하여 주인장에게 보여주세요!<br>(프로그래머용 보안 코드 및 타임스탬프 포함)</p>
+            <div id="ticket-list-container" class="flex-1 overflow-y-auto space-y-3 pr-1">
+                </div>
+            <button id="close-ticket-btn" class="w-full mt-4 bg-slate-800 text-white py-2 rounded-xl text-sm">닫기</button>
+        </div>
+    </div>
+
     <script>
-        const gameState = { stage: 1, maxStage: 3, level: 1, tickets: 0, currentTab: 'game', gachaPressTimer: null, gachaProgressInterval: null, gachaHoldTime: 0, requiredHoldTime: 15 };
+        const gameState = { stage: 1, maxStage: 3, level: 1, tickets: 0, myTickets: [], currentTab: 'game', gachaPressTimer: null, gachaProgressInterval: null, gachaHoldTime: 0, requiredHoldTime: 15 };
         const el = {
             levelDisplay: document.getElementById('level-display'), ticketDisplay: document.getElementById('ticket-display'), stageDisplay: document.getElementById('stage-display'), levelProgress: document.getElementById('level-progress'),
             tabGame: document.getElementById('tab-game'), tabGacha: document.getElementById('tab-gacha'),
             gamePanel: document.getElementById('game-panel'), gachaPanel: document.getElementById('gacha-panel'), gameContent: document.getElementById('game-content'), gameControls: document.getElementById('game-controls'),
             gachaBtn: document.getElementById('gacha-btn'), gachaProgress: document.getElementById('gacha-progress'), gachaResult: document.getElementById('gacha-result'), rateModal: document.getElementById('rate-modal'),
-            showRateBtn: document.getElementById('show-rate-btn'), closeRateBtn: document.getElementById('close-rate-btn')
+            showRateBtn: document.getElementById('show-rate-btn'), closeRateBtn: document.getElementById('close-rate-btn'),
+            ticketModal: document.getElementById('ticket-modal'), showTicketBoxBtn: document.getElementById('show-ticket-box-btn'), closeTicketBtn: document.getElementById('close-ticket-btn'), ticketListContainer: document.getElementById('ticket-list-container')
         };
 
         function updateUI() {
@@ -93,6 +115,11 @@
             el.levelDisplay.innerText = "🐶 LV. " + gameState.level + " 모험";
             el.stageDisplay.innerText = gameState.stage + "단계 미션 진행중";
             el.levelProgress.style.width = ((gameState.stage - 1) / gameState.maxStage) * 100 + "%";
+            if (gameState.myTickets.length > 0) {
+                el.showTicketBoxBtn.classList.remove('hidden');
+            } else {
+                el.showTicketBoxBtn.classList.add('hidden');
+            }
         }
 
         function switchTab(tab) {
@@ -114,22 +141,21 @@
         const games = {
             1: {
                 title: "🐾 1단계: 간식 배달 대작전", 
-                desc: "강아지는 <b>오른쪽</b>으로 이동하고, 장애물은 <b>왼쪽</b>에서 다가옵니다!<br>타이밍에 맞춰 점프하여 장애물을 피하고 살아남으세요!",
+                desc: "강아지는 오른쪽, 장애물은 왼쪽에서 다가옵니다!<br><b>10초</b> 동안 점프하며 버티세요! (레벨당 10초 증가)",
                 start: function(onClear) {
-                    // 레벨별 버티기 시간: 기본 30초, 레벨당 30초 추가
-                    let targetSeconds = 30 * gameState.level;
+                    let targetSeconds = 10 * gameState.level;
                     let timeLeft = targetSeconds;
                     let isJumping = false;
                     let isDoubleJumping = false;
                     let lastJumpTime = 0;
 
-                    el.gameContent.innerHTML = '<div class="text-base font-bold mb-1">' + this.title + '</div>' +
-                        '<div class="text-xs text-slate-500 mb-3">' + this.desc + '</div>' +
-                        '<div class="relative w-full h-24 bg-amber-100 rounded-xl overflow-hidden mb-3 border border-amber-200 flex items-end px-4">' +
-                            '<div id="dog-run" class="text-3xl transition-all duration-150 absolute bottom-2 left-10">🐕</div>' +
-                            '<div id="obs-run" class="text-2xl absolute bottom-2 right-6 animate-pulse">🪵</div>' +
+                    el.gameContent.innerHTML = '<div class="text-sm font-bold mb-1">' + this.title + '</div>' +
+                        '<div class="text-xs text-slate-500 mb-2">' + this.desc + '</div>' +
+                        '<div class="relative w-full h-24 bg-amber-100 rounded-xl overflow-hidden mb-2 border border-amber-200 flex items-end px-4">' +
+                            '<div id="dog-run" class="text-3xl transition-all duration-150 absolute bottom-2 left-6 z-10">🐕</div>' +
+                            '<div id="obs-run" class="text-2xl absolute bottom-2 right-4 animate-obstacle">🪵</div>' +
                         '</div>' +
-                        '<div class="text-lg font-bold text-amber-600 mb-1">⏳ 남은 버티기 시간: <span id="time-left">' + timeLeft + '</span>초 (레벨 ' + gameState.level + ')</div>';
+                        '<div class="text-base font-bold text-amber-600">⏳ 남은 버티기 시간: <span id="time-left">' + timeLeft + '</span>초</div>';
 
                     el.gameControls.innerHTML = '';
                     const btn = document.createElement('button');
@@ -167,11 +193,10 @@
             },
             2: {
                 title: "👨‍🍳 2단계: 뭉치의 멍멍 셰프", 
-                desc: "<b>안내:</b> 담아야 하는 재료는 그릇이 <b>금색(🏆골든 그릇)</b>입니다!<br>지나가는 재료 중 골든 그릇만 골라 정확히 3번 담으세요!<br>(썩은 음식이나 빈 그릇은 피하세요)",
+                desc: "<b>안내:</b> 담아야 하는 재료는 그릇이 <b>금색(🏆골든 그릇)</b>입니다!<br>지나가는 그릇 중 금색만 골라 3번 담으세요!",
                 start: function(onClear) {
                     let successCount = 0;
                     const target = 3;
-                    // 레벨별 속도 배율 (레벨 1: 1초, 레벨 2: 3배 빠르게 등)
                     let speedMultiplier = gameState.level === 1 ? 1 : (gameState.level === 2 ? 3 : 5);
                     
                     const itemPool = [
@@ -186,7 +211,7 @@
                     el.gameContent.innerHTML = '<div class="text-sm font-bold mb-1">' + this.title + '</div>' +
                         '<div class="text-xs text-slate-500 mb-2">' + this.desc + '</div>' +
                         '<div class="bg-purple-50 p-3 rounded-xl border border-purple-200 mb-3">' +
-                            '<div class="text-xs text-purple-700 font-bold mb-1">현재 다가오는 그릇 (속도 배율: x' + speedMultiplier + ')</div>' +
+                            '<div class="text-xs text-purple-700 font-bold mb-1">현재 다가오는 그릇 (속도 x' + speedMultiplier + ')</div>' +
                             '<div id="bowl-box" class="text-xl font-black text-amber-600 animate-pulse">' + currentItem.name + '</div>' +
                         '</div>' +
                         '<div class="text-sm font-bold text-slate-700">골든 그릇 수집: <span id="bowl-count">0</span> / 3</div>';
@@ -209,13 +234,11 @@
                         } else {
                             alert("앗! 썩었거나 빈 그릇을 담았습니다! 다시 시도하세요.");
                         }
-                        // 다음 아이템 랜덤 갱신
                         currentItem = itemPool[Math.floor(Math.random() * itemPool.length)];
                         document.getElementById('bowl-box').innerText = currentItem.name;
                     };
                     el.gameControls.appendChild(btn);
 
-                    // 레벨별 속도에 맞춰 자동으로 아이템이 지나가는 인터벌 시뮬레이션
                     let intervalTime = 2000 / speedMultiplier;
                     const itemMover = setInterval(() => {
                         currentItem = itemPool[Math.floor(Math.random() * itemPool.length)];
@@ -228,10 +251,8 @@
                 title: "🚩 3단계: 우리 동네 댕댕이 대장", 
                 desc: "AI 상대와 연타 대결!<br>레벨 1은 40초 안에 20점을 얻어야 합니다.<br>(레벨업 시 제한시간 5초 단축 & 목표 점수 5점 증가)",
                 start: function(onClear) {
-                    // 레벨별 설정: 레벨 1(40초, 20점), 레벨 2(35초, 25점), 레벨 3(30초, 30점)...
                     let timeLimit = 40 - (gameState.level - 1) * 5;
                     let targetScore = 20 + (gameState.level - 1) * 5;
-                    
                     let myScore = 0;
                     let aiScore = 0;
                     let gameActive = true;
@@ -247,7 +268,6 @@
                             '<div id="battle-bar" class="bg-amber-500 h-full w-[50%] transition-all"></div>' +
                         '</div>';
 
-                    // AI 점수 상승 루프 (레벨이 높을수록 AI가 더 빠르게 점수를 올림)
                     let aiSpeed = 300 - (gameState.level - 1) * 50;
                     const aiInterval = setInterval(() => {
                         if (!gameActive) return;
@@ -265,7 +285,6 @@
                         }
                     }, Math.max(aiSpeed, 100));
 
-                    // 전체 제한시간 타이머
                     const countDownTimer = setInterval(() => {
                         if (!gameActive) return;
                         timeLimit--;
@@ -312,7 +331,6 @@
         function loadStage() {
             updateUI();
             if (gameState.stage > gameState.maxStage) {
-                // 3단계 모두 클리어 시 뽑기권 2장 지급 및 난이도 레벨 업!
                 gameState.tickets += 2;
                 gameState.level += 1;
                 gameState.stage = 1;
@@ -381,7 +399,6 @@
             const rand = Math.random() * 100;
             let prize = ""; let isWin = true;
 
-            // 수정된 확률 반영 (0.5%, 5%, 14.5%, 20%, 60%)
             if (rand < 0.5) {
                 prize = "👑 [0.5%] 대박! 5천원 이내의 원하는 것 (깊카/문상 불가)";
             } else if (rand < 5.5) {
@@ -395,8 +412,20 @@
             }
 
             if (isWin) {
-                el.gachaResult.innerText = prize; 
-                el.gachaResult.className = "mt-4 text-center text-base font-bold text-orange-600 min-h-[40px]";
+                // 프로그래머 전용 보안 코드 및 타임스탬프 생성
+                const now = new Date();
+                const timeString = now.getFullYear() + "-" + String(now.getMonth()+1).padStart(2,'0') + "-" + String(now.getDate()).padStart(2,'0') + " " + String(now.getHours()).padStart(2,'0') + ":" + String(now.getMinutes()).padStart(2,'0') + ":" + String(now.getSeconds()).padStart(2,'0');
+                const secureCode = "TICKET_HASH_" + Math.random().toString(36).substring(2, 10).toUpperCase() + "_" + now.getTime().toString(36).toUpperCase();
+
+                gameState.myTickets.push({
+                    prize: prize,
+                    time: timeString,
+                    code: secureCode
+                });
+                updateUI();
+
+                el.gachaResult.innerHTML = prize + '<br><span class="text-xs text-purple-600 font-normal">🎟️ 티켓이 보관함에 저장되었습니다! 저장해 두세요.</span>';
+                el.gachaResult.className = "mt-4 text-center text-sm font-bold text-orange-600 min-h-[40px]";
             } else {
                 el.gachaResult.innerText = "🐾 꽝! 댕댕이가 위로 한마디 쓰는 중...";
                 el.gachaResult.className = "mt-4 text-center text-sm font-bold text-slate-500 min-h-[40px]";
@@ -416,8 +445,24 @@
         el.gachaBtn.addEventListener('touchstart', (e) => { e.preventDefault(); startPress(); });
         el.gachaBtn.addEventListener('touchend', (e) => { e.preventDefault(); cancelPress(); });
 
+        // 확률표 및 티켓 보관함 모달 제어
         el.showRateBtn.onclick = () => el.rateModal.className = "fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50";
         el.closeRateBtn.onclick = () => el.rateModal.className = "fixed inset-0 bg-black/50 hidden items-center justify-center p-4 z-50";
+
+        el.showTicketBoxBtn.onclick = () => {
+            el.ticketListContainer.innerHTML = "";
+            gameState.myTickets.forEach((t, idx) => {
+                const card = document.createElement('div');
+                card.className = "bg-purple-50 border-2 border-purple-200 rounded-xl p-3 text-xs";
+                card.innerHTML = '<div class="font-bold text-purple-900 mb-1">🎫 당첨 상품 #' + (idx+1) + '</div>' +
+                                 '<div class="text-slate-700 font-semibold mb-1">' + t.prize + '</div>' +
+                                 '<div class="text-slate-500 text-[10px] mb-1">⏱️ 당첨 시간: ' + t.time + '</div>' +
+                                 '<div class="bg-white p-1.5 rounded border border-purple-100 font-mono text-[10px] text-purple-700 select-all">🔑 CODE: ' + t.code + '</div>';
+                el.ticketListContainer.appendChild(card);
+            });
+            el.ticketModal.className = "fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50";
+        };
+        el.closeTicketBtn.onclick = () => el.ticketModal.className = "fixed inset-0 bg-black/50 hidden items-center justify-center p-4 z-50";
 
         loadStage();
     </script>
