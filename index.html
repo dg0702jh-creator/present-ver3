@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>미니 게임</title>
+    <title>댕댕이의 미니게임 천국</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Jua&display=swap');
@@ -14,26 +14,25 @@
     <!-- Firebase SDK 모듈 로드 -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc, onSnapshot, query, orderBy, where } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-        // 🔥 본인의 파이어베이스 설정값이 적용된 코드입니다.
         const firebaseConfig = {
-            apiKey: "AIzaSyCTbQesFO62dhYqO4r10Dh-TAwTyVtPAtI",
-            authDomain: "dog-game-53afe.firebaseapp.com",
-            databaseURL: "https://dog-game-53afe-default-rtdb.firebaseio.com",
-            projectId: "dog-game-53afe",
-            storageBucket: "dog-game-53afe.firebasestorage.app",
-            messagingSenderId: "511032825533",
-            appId: "1:511032825533:web:474c357d2b71f0040109d4",
-            measurementId: "G-B06LBELMNP"
+            apiKey: "AIzaSyCGSwTCjZNzOJgI74Jq_qNog-v2Lpgmyqw",
+            authDomain: "dog-game-project.firebaseapp.com",
+            projectId: "dog-game-project",
+            storageBucket: "dog-game-project.firebasestorage.app",
+            messagingSenderId: "536800421164",
+            appId: "1:536800421164:web:3d8b51d96f18c93d81b889",
+            measurementId: "G-TXR7MVHMCH"
         };
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        // 전역에서 사용할 수 있도록 등록
         window.db = db;
-        window.fbModules = { collection, addDoc, getDocs, deleteDoc, doc, updateDoc, onSnapshot, query, orderBy };
+        window.fbModules = { collection, addDoc, getDocs, deleteDoc, doc, updateDoc, onSnapshot, query, orderBy, where };
+        
+        window.dispatchEvent(new Event('firebase-ready'));
     </script>
 </head>
 <body class="bg-amber-50 text-slate-800 min-h-screen flex flex-col items-center justify-between p-4 selection:bg-amber-200">
@@ -42,7 +41,7 @@
     <div id="nickname-modal" class="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
         <div class="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border-4 border-amber-400 text-center flex flex-col items-center">
             <span class="text-4xl mb-2">🐶</span>
-            <h3 class="text-xl font-bold text-amber-600 mb-1">미니 게임</h3>
+            <h3 class="text-xl font-bold text-amber-600 mb-1">댕댕이의 미니게임 천국</h3>
             <p class="text-xs text-slate-500 mb-4">게임을 시작하기 전에 닉네임을 적어주세요!</p>
             <input id="nickname-input" type="text" placeholder="닉네임을 적으시오 :" class="w-full border-2 border-amber-300 rounded-xl p-3 text-sm text-center font-bold mb-3 focus:outline-none focus:border-amber-500">
             <button id="nickname-submit-btn" class="w-full bg-amber-500 hover:bg-amber-600 text-white py-3 rounded-xl text-sm font-bold shadow-md transition-colors cursor-pointer">모험 시작하기 🚀</button>
@@ -113,9 +112,7 @@
 
         <div class="flex flex-col gap-2 mt-2">
             <span class="text-xs font-bold text-slate-500">실시간 건의 목록</span>
-            <div id="board-list-container" class="flex flex-col gap-2 max-h-60 overflow-y-auto pr-1">
-                <!-- 파이어베이스 데이터가 실시간으로 렌더링됨 -->
-            </div>
+            <div id="board-list-container" class="flex flex-col gap-2 max-h-60 overflow-y-auto pr-1"></div>
         </div>
     </section>
 
@@ -172,7 +169,7 @@
 
                 <div id="admin-ticket-content" class="flex flex-col gap-2 flex-1 overflow-y-auto">
                     <p class="text-[11px] text-slate-500 text-center">발급된 티켓 코드를 입력하여 사용 여부를 확인하세요.</p>
-                    <input id="admin-code-input" type="text" placeholder="티켓 코드 입력" class="w-full border border-slate-300 rounded-xl p-2 text-xs font-mono uppercase">
+                    <input id="admin-code-input" type="text" placeholder="티켓 코드 입력 (예: TICKET_...)" class="w-full border border-slate-300 rounded-xl p-2 text-xs font-mono uppercase">
                     <button id="admin-check-btn" class="w-full bg-slate-800 text-white py-2 rounded-xl text-xs font-bold hover:bg-slate-700 cursor-pointer">티켓 조회하기</button>
                     <div id="admin-result-box" class="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs min-h-[90px] flex flex-col justify-center items-center text-center text-slate-500">코드를 입력하고 조회 버튼을 누르세요.</div>
                 </div>
@@ -223,7 +220,6 @@
             if (savedData) {
                 try {
                     const parsed = JSON.parse(savedData);
-                    gameState.myTickets = parsed.myTickets || [];
                     gameState.tickets = parsed.tickets || 0;
                     gameState.level = parsed.level || 1;
                     gameState.stage = parsed.stage || 1;
@@ -234,16 +230,16 @@
         function saveUserData() {
             if (!gameState.nickname) return;
             localStorage.setItem('dog_game_user_' + gameState.nickname, JSON.stringify({
-                myTickets: gameState.myTickets, tickets: gameState.tickets, level: gameState.level, stage: gameState.stage
+                tickets: gameState.tickets, level: gameState.level, stage: gameState.stage
             }));
         }
 
-        // 파이어베이스 실시간 게시판 연동 로직
-        setTimeout(() => {
+        // 파이어베이스 연동 로직
+        window.addEventListener('firebase-ready', () => {
             const db = window.db;
-            const { collection, addDoc, onSnapshot, query, orderBy, deleteDoc, doc, updateDoc } = window.fbModules;
+            const { collection, addDoc, onSnapshot, query, orderBy, deleteDoc, doc, updateCd, updateDoc, getDocs, where } = window.fbModules;
 
-            // 1. 글 등록
+            // 1. 건의함 글 등록
             el.boardSubmitBtn.onclick = async () => {
                 const text = el.boardInput.value.trim();
                 if (!text) { alert("내용을 입력해주세요!"); return; }
@@ -262,10 +258,11 @@
                     el.boardInput.value = "";
                 } catch (e) {
                     console.error("등록 오류:", e);
+                    alert("게시글 등록 중 오류가 발생했습니다.");
                 }
             };
 
-            // 2. 실시간 게시글 불러오기 (onSnapshot)
+            // 2. 건의함 실시간 수신
             const q = query(collection(db, "board_posts"), orderBy("createdAt", "desc"));
             onSnapshot(q, (snapshot) => {
                 el.boardListContainer.innerHTML = '';
@@ -282,7 +279,6 @@
                 posts.forEach((p) => {
                     const item = document.createElement('div');
                     item.className = "bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs flex flex-col gap-1.5";
-                    
                     let replyHtml = p.reply ? `<div class="bg-amber-50 border border-amber-200 rounded-lg p-2 text-[11px] text-amber-900 mt-1"><span class="font-bold">👑 주인장(관리자) 답글:</span> ${p.reply}</div>` : '';
 
                     item.innerHTML = `
@@ -297,9 +293,57 @@
                 });
             });
 
-            // 관리자 게시판 관리 리스트
+            // 3. 내 티켓 목록 실시간 동기화 (티켓함 열 때 파이어베이스에서 조회)
+            window.loadMyFirebaseTickets = async function() {
+                if (!gameState.nickname) return;
+                const ticketQuery = query(collection(db, "user_tickets"), where("owner", "==", gameState.nickname));
+                const snapshot = await getDocs(ticketQuery);
+                gameState.myTickets = [];
+                snapshot.forEach((docSnap) => {
+                    gameState.myTickets.push({ id: docSnap.id, ...docSnap.data() });
+                });
+                el.showTicketBoxBtn.classList.toggle('hidden', gameState.myTickets.length === 0);
+            };
+
+            // 4. 관리자 티켓 조회 기능 (모든 사용자의 티켓 검색 가능)
+            el.adminCheckBtn.onclick = async () => {
+                const code = el.adminCodeInput.value.trim().toUpperCase();
+                if (!code) { alert("코드를 입력하세요!"); return; }
+
+                const ticketQuery = query(collection(db, "user_tickets"), where("code", "==", code));
+                const snapshot = await getDocs(ticketQuery);
+
+                if (snapshot.empty) {
+                    el.adminResultBox.innerHTML = '<span class="text-red-500 font-bold">존재하지 않는 코드입니다.</span>';
+                    return;
+                }
+
+                let ticketDocId = "";
+                let ticketData = null;
+                snapshot.forEach((docSnap) => {
+                    ticketDocId = docSnap.id;
+                    ticketData = docSnap.data();
+                });
+
+                el.adminResultBox.innerHTML = `
+                    <div class="font-bold mb-0.5 text-purple-700">소유자: ${ticketData.owner}</div>
+                    <div class="font-bold mb-1">${ticketData.prize}</div>
+                    <div class="text-[11px] text-slate-500 mb-2">상태: ${ticketData.isUsed ? '<span class="text-red-500 font-bold">사용완료</span>' : '<span class="text-green-600 font-bold">미사용</span>'}</div>
+                    <button id="firebase-toggle-btn" class="w-full ${ticketData.isUsed ? 'bg-green-600' : 'bg-red-600'} text-white py-1.5 rounded-lg text-xs font-bold cursor-pointer">
+                        ${ticketData.isUsed ? '미사용으로 변경' : '사용 완료 처리'}
+                    </button>
+                `;
+
+                document.getElementById('firebase-toggle-btn').onclick = async () => {
+                    const newStatus = !ticketData.isUsed;
+                    await updateDoc(doc(db, "user_tickets", ticketDocId), { isUsed: newStatus });
+                    alert("티켓 상태가 변경되었습니다!");
+                    el.adminCheckBtn.click(); // 새로고침 반영
+                };
+            };
+
+            // 관리자 게시판 리스트 관리
             window.loadAdminBoardList = async function() {
-                const { getDocs } = window.fbModules;
                 const querySnapshot = await getDocs(query(collection(db, "board_posts"), orderBy("createdAt", "desc")));
                 el.adminBoardList.innerHTML = '';
                 
@@ -341,7 +385,7 @@
                 await deleteDoc(doc(db, "board_posts", postId));
                 loadAdminBoardList();
             };
-        }, 500);
+        });
 
         window.addEventListener('DOMContentLoaded', () => {
             const lastNickname = localStorage.getItem('dog_game_last_nickname');
@@ -352,6 +396,7 @@
                 el.welcomeBanner.classList.remove('hidden');
                 el.userWelcomeText.innerText = `사용자의 닉네임은 ${gameState.nickname} 입니다`;
                 loadStage();
+                setTimeout(() => { if (window.loadMyFirebaseTickets) window.loadMyFirebaseTickets(); }, 1000);
             } else {
                 el.nicknameModal.classList.remove('hidden');
             }
@@ -367,6 +412,7 @@
             el.welcomeBanner.classList.remove('hidden');
             el.userWelcomeText.innerText = `사용자의 닉네임은 ${gameState.nickname} 입니다`;
             loadStage();
+            if (window.loadMyFirebaseTickets) window.loadMyFirebaseTickets();
         };
 
         function getTodayString() {
@@ -412,7 +458,6 @@
         el.tabGame.onclick = () => switchTab('game');
         el.tabGacha.onclick = () => switchTab('gacha');
 
-        // 게임 및 뽑기 로직
         const quizPoolByLevel = {
             1: [
                 { q: "인간의 뼈는 태어날 때보다 어른이 되었을 때 더 많다?", answer: false, hint: "태어날 때는 약 305개지만 성인은 206개입니다." },
@@ -449,7 +494,7 @@
             2: {
                 start: function(onClear) {
                     let successCount = 0;
-                    el.gameContent.innerHTML = `<div class="text-sm font-bold mb-2">👨‍🍳 2단계 셰프 미션</div><div class="text-xs text-slate-500 mb-3">금색 그릇을 3번 담으세요!</div><div class="text-xl font-black text-amber-600 mb-3" id="bowl-box">🏆 금색 뼈다귀 그릇</div><div class="text-sm font-bold">수집: <span id="bowl-count">0</span> / 3</div>`;
+                    el.gameContent.innerHTML = `<div class="text-sm font-bold mb-2">👨‍🍳 2단계 셰프 미션</div><div class="text-xs text-slate-500 mb-3">금색 그릇을 3번 담으세요!</div><div class="text-xl font-black text-amber-600 mb-3">🏆 금색 뼈다귀 그릇</div><div class="text-sm font-bold">수집: <span id="bowl-count">0</span> / 3</div>`;
                     el.gameControls.innerHTML = '';
                     const btn = document.createElement('button');
                     btn.className = "w-full bg-purple-600 text-white font-bold py-3 rounded-xl text-lg shadow-md cursor-pointer";
@@ -505,7 +550,7 @@
             });
         }
 
-        // 뽑기 기능
+        // 뽑기 기능 (파이어베이스 연동 저장)
         function startPress() {
             if (getRemainingGachaCount() <= 0 || gameState.tickets <= 0) {
                 el.gachaResult.innerText = "⏳ 횟수 또는 뽑기권이 부족합니다!";
@@ -525,7 +570,7 @@
             el.gachaProgress.style.width = '0%';
         }
 
-        function triggerGacha() {
+        async function triggerGacha() {
             if (gameState.tickets <= 0 || getRemainingGachaCount() <= 0) return;
             gameState.tickets--; useGachaCount(); updateUI();
             
@@ -535,9 +580,16 @@
             if (prize !== "꽝") {
                 const now = new Date();
                 const secureCode = "TICKET_" + Math.random().toString(36).substring(2, 8).toUpperCase();
-                gameState.myTickets.push({ prize, time: now.toLocaleString(), code: secureCode, isUsed: false });
-                updateUI();
-                el.gachaResult.innerHTML = `${prize}<br><span class="text-purple-600">🎟️ 티켓함 저장완료!</span>`;
+                const newTicket = { owner: gameState.nickname, prize, time: now.toLocaleString(), code: secureCode, isUsed: false };
+                
+                try {
+                    await window.fbModules.addDoc(window.fbModules.collection(window.db, "user_tickets"), newTicket);
+                    if (window.loadMyFirebaseTickets) window.loadMyFirebaseTickets();
+                } catch(e) {
+                    console.error("티켓 저장 오류:", e);
+                }
+
+                el.gachaResult.innerHTML = `${prize}<br><span class="text-purple-600">🎟️ 클라우드 티켓함 저장완료! (${secureCode})</span>`;
             } else {
                 el.gachaResult.innerText = "💨 꽝! 다음 기회에!";
             }
@@ -552,7 +604,8 @@
         el.showRateBtn.onclick = () => el.rateModal.className = "fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50";
         el.closeRateBtn.onclick = () => el.rateModal.className = "fixed inset-0 bg-black/50 hidden items-center justify-center p-4 z-50";
 
-        el.showTicketBoxBtn.onclick = () => {
+        el.showTicketBoxBtn.onclick = async () => {
+            if (window.loadMyFirebaseTickets) await window.loadMyFirebaseTickets();
             el.ticketListContainer.innerHTML = gameState.myTickets.length === 0 ? '<div class="text-center text-xs text-slate-400 py-6">보관된 티켓이 없습니다.</div>' : '';
             gameState.myTickets.forEach((t, idx) => {
                 const card = document.createElement('div');
@@ -564,7 +617,6 @@
         };
         el.closeTicketBtn.onclick = () => el.ticketModal.className = "fixed inset-0 bg-black/50 hidden items-center justify-center p-4 z-50";
 
-        // 관리자 모달
         el.showAdminBtn.onclick = () => {
             el.adminMasterkeyInput.value = "";
             el.adminAuthSection.className = "flex flex-col gap-2 my-auto";
@@ -595,18 +647,6 @@
         }
         el.adminTabTicket.onclick = () => switchAdminTab('ticket');
         el.adminTabBoard.onclick = () => switchAdminTab('board');
-
-        el.adminCheckBtn.onclick = () => {
-            const code = el.adminCodeInput.value.trim().toUpperCase();
-            const found = gameState.myTickets.find(t => t.code.toUpperCase() === code);
-            if (!found) { el.adminResultBox.innerHTML = '<span class="text-red-500 font-bold">존재하지 않는 코드입니다.</span>'; return; }
-            el.adminResultBox.innerHTML = `<div class="font-bold mb-1">${found.prize}</div><button id="toggle-btn" class="w-full bg-red-600 text-white py-1.5 rounded-lg text-xs font-bold cursor-pointer">사용 완료 처리</button>`;
-            document.getElementById('toggle-btn').onclick = () => {
-                found.isUsed = !found.isUsed;
-                el.adminResultBox.innerHTML = `<div class="font-bold mb-1">상태가 변경되었습니다!</div>`;
-                saveUserData();
-            };
-        };
     </script>
 </body>
 </html>
