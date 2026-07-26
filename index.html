@@ -93,16 +93,28 @@
         </div>
     </div>
 
-    <!-- 관리자 모달 -->
+    <!-- 관리자 모달 (마스터키 입력 시스템 포함) -->
     <div id="admin-modal" class="fixed inset-0 bg-black/50 hidden items-center justify-center p-4 z-50">
         <div class="bg-white rounded-2xl max-w-sm w-full p-5 shadow-2xl border-2 border-slate-700 flex flex-col">
             <h4 class="text-lg font-bold text-center mb-2 text-slate-800">🛠️ 관리자 티켓 검증 시스템</h4>
-            <p class="text-[11px] text-slate-500 mb-3 text-center">발급된 티켓 코드를 입력하여 사용 여부를 확인하고 변경하세요.</p>
-            <input id="admin-code-input" type="text" placeholder="티켓 코드 입력 (예: TICKET_HASH_...)" class="w-full border border-slate-300 rounded-xl p-2.5 text-xs mb-2 font-mono uppercase">
-            <button id="admin-check-btn" class="w-full bg-slate-800 text-white py-2.5 rounded-xl text-xs font-bold mb-3 hover:bg-slate-700">티켓 조회하기</button>
-            <div id="admin-result-box" class="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs min-h-[90px] mb-3 flex flex-col justify-center items-center text-center text-slate-500">
-                코드를 입력하고 조회 버튼을 눌러주세요.
+            
+            <!-- 마스터키 인증 화면 -->
+            <div id="admin-auth-section" class="flex flex-col gap-2 mb-3">
+                <p class="text-[11px] text-slate-500 text-center">관리자 권한 번호(마스터키)를 입력하세요.<br>(기본 마스터키: <b>1234</b>)</p>
+                <input id="admin-masterkey-input" type="password" placeholder="마스터키 번호 입력" class="w-full border border-slate-300 rounded-xl p-2.5 text-xs font-mono">
+                <button id="admin-login-btn" class="w-full bg-slate-800 text-white py-2 rounded-xl text-xs font-bold hover:bg-slate-700">관리자 인증하기</button>
             </div>
+
+            <!-- 인증 성공 시 열리는 티켓 조회/관리 패널 -->
+            <div id="admin-panel-section" class="hidden flex-col gap-2">
+                <p class="text-[11px] text-slate-500 mb-1 text-center">발급된 티켓 코드를 입력하여 사용 여부를 확인하고 변경하세요.</p>
+                <input id="admin-code-input" type="text" placeholder="티켓 코드 입력 (예: TICKET_HASH_...)" class="w-full border border-slate-300 rounded-xl p-2.5 text-xs mb-1 font-mono uppercase">
+                <button id="admin-check-btn" class="w-full bg-slate-800 text-white py-2.5 rounded-xl text-xs font-bold mb-2 hover:bg-slate-700">티켓 조회하기</button>
+                <div id="admin-result-box" class="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs min-h-[90px] mb-3 flex flex-col justify-center items-center text-center text-slate-500">
+                    코드를 입력하고 조회 버튼을 눌러주세요.
+                </div>
+            </div>
+
             <button id="close-admin-btn" class="w-full bg-slate-200 text-slate-700 py-2 rounded-xl text-xs font-bold">닫기</button>
         </div>
     </div>
@@ -119,7 +131,8 @@
             gachaProgressInterval: null, 
             gachaHoldTime: 0, 
             requiredHoldTime: 15,
-            maxDailyGacha: 4
+            maxDailyGacha: 4,
+            masterKey: "1234" // 관리자 마스터키 번호 설정
         };
 
         const el = {
@@ -131,10 +144,11 @@
             rateModal: document.getElementById('rate-modal'), showRateBtn: document.getElementById('show-rate-btn'), closeRateBtn: document.getElementById('close-rate-btn'),
             ticketModal: document.getElementById('ticket-modal'), showTicketBoxBtn: document.getElementById('show-ticket-box-btn'), closeTicketBtn: document.getElementById('close-ticket-btn'), ticketListContainer: document.getElementById('ticket-list-container'),
             adminModal: document.getElementById('admin-modal'), showAdminBtn: document.getElementById('show-admin-btn'), closeAdminBtn: document.getElementById('close-admin-btn'),
+            adminAuthSection: document.getElementById('admin-auth-section'), adminMasterkeyInput: document.getElementById('admin-masterkey-input'), adminLoginBtn: document.getElementById('admin-login-btn'),
+            adminPanelSection: document.getElementById('admin-panel-section'),
             adminCodeInput: document.getElementById('admin-code-input'), adminCheckBtn: document.getElementById('admin-check-btn'), adminResultBox: document.getElementById('admin-result-box')
         };
 
-        // 일일 뽑기 횟수 관리 (localStorage 이용)
         function getTodayString() {
             const now = new Date();
             return now.getFullYear() + "-" + String(now.getMonth()+1).padStart(2,'0') + "-" + String(now.getDate()).padStart(2,'0');
@@ -191,37 +205,35 @@
         el.tabGame.onclick = () => switchTab('game');
         el.tabGacha.onclick = () => switchTab('gacha');
 
-        // 1단계: 난이도별 대규모 퀴즈 풀 (레벨이 올라갈수록 난이도 상승)
+        // [수정 완료] 퀴즈 범위를 강아지에서 일반 상식, 과학, 역사, 동물 등 전 분야로 대폭 확장
         const quizPoolByLevel = {
             1: [
-                { q: "강아지는 단맛보다 짠맛을 더 강하게 느낀다?", answer: false, hint: "강아지는 짠맛보다 단맛/신맛에 민감해요!" },
-                { q: "강아지가 꼬리를 흔드는 것은 무조건 기분 좋다는 뜻이다?", answer: false, hint: "경계하거나 긴장할 때도 흔들 수 있어요!" },
-                { q: "강아지의 후각은 사람보다 수만~수백만 배 뛰어나다?", answer: true, hint: "정답입니다! 냄새를 아주 잘 맡아요." },
-                { q: "강아지에게 초콜릿은 해로운 음식이다?", answer: true, hint: "초콜릿의 테오브로민 성분은 위험해요!" },
-                { q: "강아지도 사람처럼 땀을 온몸으로 흘린다?", answer: false, hint: "강아지는 발바닥이나 혀로 체온을 조절해요." }
+                { q: "인간의 뼈는 태어날 때보다 어른이 되었을 때 더 많다?", answer: false, hint: "태어날 때는 약 305개지만 자라면서 합쳐져 성인은 206개가 됩니다." },
+                { q: "토마토는 채소가 아니라 과일에 가깝다?", answer: true, hint: "식물학적으로 열매를 맺는 토마토는 과일에 속합니다." },
+                { q: "지구에서 번개가 가장 많이 치는 곳은 바다보다 육지이다?", answer: true, hint: "태양열로 대기가 불안정한 육지 부근에 번개가 더 자주 칩니다." },
+                { q: "상어는 뼈가 연골로 이루어져 있어 뼈 화석이 거의 남지 않는다?", answer: true, hint: "단단한 뼈 대신 연골로 구성되어 있어요." },
+                { q: "문어의 심장은 몸 전체에 피를 보내기 위해 총 3개가 존재한다?", answer: true, hint: "아가미 심장 2개와 체순환 심장 1개가 있어요." }
             ],
             2: [
-                { q: "성견(다 자란 개)의 이빨 개수는 총 42개이다?", answer: true, hint: "위턱 20개, 아래턱 22개로 총 42개입니다." },
-                { q: "강아지의 시력은 사람보다 훨씬 뛰어나며 색맹이 아니다?", answer: false, hint: "강아지는 적록 색맹이며 시력은 사람보다 흐려요." },
-                { q: "강아지가 하품하는 것은 항상 졸리다는 뜻이다?", answer: false, hint: "스트레스나 긴장을 완화하기 위해 하품하기도 해요." },
-                { q: "대부분의 강아지는 왼쪽 귀보다 오른쪽 귀의 청력이 더 좋다?", answer: false, hint: "청력 차이는 좌우가 비슷하며 소리 방향을 잘 찾아요." }
+                { q: "빛이 태양에서 지구까지 도달하는 데 걸리는 시간은 약 8분이다?", answer: true, hint: "약 8분 20초 정도가 소요됩니다." },
+                { q: "인체의 가장 큰 장기는 피부이다?", answer: true, hint: "성인 기준 피부 면적은 매우 넓습니다." },
+                { q: "사막의 모래는 모두 유리로 만들 수 있는 성분으로 이루어져 있다?", answer: true, hint: "모래의 주성분은 이산화규소입니다." },
+                { q: "꿀은 유통기한이 지나면 상해서 먹을 수 없게 된다?", answer: false, hint: "꿀은 수분이 적고 당도가 높아 영구적으로 보존됩니다." }
             ],
             3: [
-                { q: "세계에서 가장 빠른 강아지 품종 중 하나는 그레이하운드이다?", answer: true, hint: "시속 70km 이상으로 달릴 수 있어요!" },
-                { q: "강아지의 지문 역할을 하는 고유한 부위는 코의 무늬(비문)이다?", answer: true, hint: "사람의 지문처럼 강아지마다 코 무늬가 다릅니다." },
-                { q: "강아지의 정상 체온은 사람보다 약간 낮은 35도이다?", answer: false, hint: "강아지의 정상 체온은 약 38~39도로 사람보다 높아요." }
+                { q: "세계에서 가장 깊은 바다인 마리아나 해구의 깊이는 에베레스트산을 넣고도 남는다?", answer: true, hint: "에베레스트산 높이보다 훨씬 깊습니다!" },
+                { q: "인간의 DNA와 침팬지의 DNA는 약 98% 이상 일치한다?", answer: true, hint: "유전적으로 매우 가까운 동물입니다." },
+                { q: "비타민 C는 인간의 몸 내부에서 자연적으로 합성될 수 있다?", answer: false, hint: "인간은 체내에서 비타민 C를 만들지 못해 섭취해야 합니다." }
             ]
         };
 
         const game1Obj = {
-            title: "🐾 1단계: 댕댕이 상식 퀴즈 챌린지", 
-            desc: "총 <b>3문제</b>의 퀴즈를 모두 맞히세요!<br>틀리면 랜덤 새 문제로 다시 도전합니다.",
+            title: "🧠 1단계: 종합 상식 퀴즈 챌린지", 
+            desc: "총 <b>3문제</b>의 상식 퀴즈를 모두 맞히세요!<br>틀리면 새로운 문제들로 다시 도전합니다.",
             start: function(onClear) {
-                // 현재 레벨에 맞는 퀴즈 풀 가져오기 (레벨이 3을 넘으면 레벨 3 풀 사용)
                 let currentLevelKey = Math.min(gameState.level, 3);
                 let pool = [...quizPoolByLevel[currentLevelKey]];
                 
-                // 무작위로 3문제 추출
                 pool.sort(() => Math.random() - 0.5);
                 const quizList = pool.slice(0, 3);
                 let currentQuizIdx = 0;
@@ -258,7 +270,7 @@
                         showQuiz();
                     } else {
                         alert("틀렸습니다! 힌트: " + qObj.hint + "\n새로운 문제들로 다시 도전하세요!");
-                        loadStage(); // 틀리면 새 문제를 뽑으며 재시작
+                        loadStage();
                     }
                 }
 
@@ -443,7 +455,6 @@
             });
         }
 
-        // 캡슐 뽑기 로직
         function startPress() {
             if (getRemainingGachaCount() <= 0) {
                 el.gachaResult.innerText = "⏳ 오늘 뽑기 횟수를 모두 소모했습니다! (하루 4번 제한)";
@@ -503,7 +514,6 @@
                 const timeString = now.getFullYear() + "-" + String(now.getMonth()+1).padStart(2,'0') + "-" + String(now.getDate()).padStart(2,'0') + " " + String(now.getHours()).padStart(2,'0') + ":" + String(now.getMinutes()).padStart(2,'0') + ":" + String(now.getSeconds()).padStart(2,'0');
                 const secureCode = "TICKET_HASH_" + Math.random().toString(36).substring(2, 10).toUpperCase() + "_" + now.getTime().toString(36).toUpperCase();
 
-                // isUsed: 사용 여부 관리 속성 추가
                 gameState.myTickets.push({ prize: prize, time: timeString, code: secureCode, isUsed: false });
                 updateUI();
 
@@ -531,7 +541,6 @@
         el.showRateBtn.onclick = () => el.rateModal.className = "fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50";
         el.closeRateBtn.onclick = () => el.rateModal.className = "fixed inset-0 bg-black/50 hidden items-center justify-center p-4 z-50";
 
-        // 티켓 보관함 모달 보기
         el.showTicketBoxBtn.onclick = () => {
             el.ticketListContainer.innerHTML = "";
             if (gameState.myTickets.length === 0) {
@@ -551,14 +560,37 @@
         };
         el.closeTicketBtn.onclick = () => el.ticketModal.className = "fixed inset-0 bg-black/50 hidden items-center justify-center p-4 z-50";
 
-        // 관리자 모드 관련 로직
+        // [수정 완료] 관리자 모달창 열기 및 마스터키 입력 제어
         el.showAdminBtn.onclick = () => {
+            el.adminMasterkeyInput.value = "";
             el.adminCodeInput.value = "";
             el.adminResultBox.innerHTML = "코드를 입력하고 조회 버튼을 눌러주세요.";
+            
+            // 모달을 열 때 항상 마스터키 입력창만 보이게 초기화
+            el.adminAuthSection.classList.remove('hidden');
+            el.adminAuthSection.classList.add('flex');
+            el.adminPanelSection.classList.add('hidden');
+            el.adminPanelSection.classList.remove('flex');
+            
             el.adminModal.className = "fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50";
         };
         el.closeAdminBtn.onclick = () => el.adminModal.className = "fixed inset-0 bg-black/50 hidden items-center justify-center p-4 z-50";
 
+        // [수정 완료] 마스터키 인증 로직
+        el.adminLoginBtn.onclick = () => {
+            const enteredKey = el.adminMasterkeyInput.value.trim();
+            if (enteredKey === gameState.masterKey) {
+                el.adminAuthSection.classList.add('hidden');
+                el.adminAuthSection.classList.remove('flex');
+                el.adminPanelSection.classList.remove('hidden');
+                el.adminPanelSection.classList.add('flex');
+            } else {
+                alert("마스터키 번호가 틀렸습니다!");
+                el.adminMasterkeyInput.value = "";
+            }
+        };
+
+        // [수정 완료] 티켓 조회 오류 수정 (공백 및 대소문자 무결성 확보)
         el.adminCheckBtn.onclick = () => {
             const inputCode = el.adminCodeInput.value.trim().toUpperCase();
             if (!inputCode) {
@@ -566,7 +598,7 @@
                 return;
             }
 
-            const foundTicket = gameState.myTickets.find(t => t.code.toUpperCase() === inputCode);
+            const foundTicket = gameState.myTickets.find(t => t.code.trim().toUpperCase() === inputCode);
             if (!foundTicket) {
                 el.adminResultBox.innerHTML = '<span class="text-red-500 font-bold">❌ 존재하지 않거나 잘못된 코드입니다.</span>';
                 return;
