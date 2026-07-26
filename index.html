@@ -10,47 +10,30 @@
         body { font-family: 'Jua', sans-serif; }
         .progress-bar { transition: width 0.1s linear; }
     </style>
-
-    <!-- Firebase SDK 모듈 로드 -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc, onSnapshot, query, orderBy, where } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-
-        const firebaseConfig = {
-            apiKey: "AIzaSyCGSwTCjZNzOJgI74Jq_qNog-v2Lpgmyqw",
-            authDomain: "dog-game-project.firebaseapp.com",
-            projectId: "dog-game-project",
-            storageBucket: "dog-game-project.firebasestorage.app",
-            messagingSenderId: "536800421164",
-            appId: "1:536800421164:web:3d8b51d96f18c93d81b889",
-            measurementId: "G-TXR7MVHMCH"
-        };
-
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-
-        window.db = db;
-        window.fbModules = { collection, addDoc, getDocs, deleteDoc, doc, updateDoc, onSnapshot, query, orderBy, where };
-        
-        window.dispatchEvent(new Event('firebase-ready'));
-    </script>
 </head>
 <body class="bg-amber-50 text-slate-800 min-h-screen flex flex-col items-center justify-between p-4 selection:bg-amber-200">
 
-    <!-- 닉네임 입력 창 -->
-    <div id="nickname-modal" class="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
+    <!-- 로그인 / 회원가입 모달 (기본적으로 강제 표시) -->
+    <div id="auth-modal" class="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
         <div class="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border-4 border-amber-400 text-center flex flex-col items-center">
             <span class="text-4xl mb-2">🐶</span>
-            <h3 class="text-xl font-bold text-amber-600 mb-1">댕댕이의 미니게임 천국</h3>
-            <p class="text-xs text-slate-500 mb-4">게임을 시작하기 전에 닉네임을 적어주세요!</p>
-            <input id="nickname-input" type="text" placeholder="닉네임을 적으시오 :" class="w-full border-2 border-amber-300 rounded-xl p-3 text-sm text-center font-bold mb-3 focus:outline-none focus:border-amber-500">
-            <button id="nickname-submit-btn" class="w-full bg-amber-500 hover:bg-amber-600 text-white py-3 rounded-xl text-sm font-bold shadow-md transition-colors cursor-pointer">모험 시작하기 🚀</button>
+            <h3 id="auth-title" class="text-xl font-bold text-amber-600 mb-1">댕댕이의 미니게임 로그인</h3>
+            <p id="auth-desc" class="text-xs text-slate-500 mb-4">계정에 로그인하여 모험을 시작하세요!</p>
+            
+            <div class="w-full flex flex-col gap-3 mb-4">
+                <input id="auth-email" type="email" placeholder="이메일 주소" class="w-full border-2 border-amber-300 rounded-xl p-3 text-sm text-center font-bold focus:outline-none focus:border-amber-500">
+                <input id="auth-password" type="password" placeholder="비밀번호 (6자리 이상)" class="w-full border-2 border-amber-300 rounded-xl p-3 text-sm text-center font-bold focus:outline-none focus:border-amber-500">
+            </div>
+
+            <button id="auth-submit-btn" class="w-full bg-amber-500 hover:bg-amber-600 text-white py-3 rounded-xl text-sm font-bold shadow-md transition-colors cursor-pointer mb-2">로그인하기 🚀</button>
+            <button id="auth-toggle-btn" class="text-xs text-slate-500 hover:text-amber-600 underline cursor-pointer bg-transparent border-none">계정이 없으신가요? 회원가입하기</button>
         </div>
     </div>
 
-    <!-- 닉네임 안내 배너 -->
-    <div id="welcome-banner" class="w-full max-w-md bg-purple-100 border border-purple-300 rounded-xl p-2.5 text-center text-xs text-purple-900 font-bold mb-2 hidden shadow-sm">
-        ✨ <span id="user-welcome-text">사용자의 닉네임은 ~~ 입니다</span> ✨
+    <!-- 로그인 정보 안내 배너 -->
+    <div id="welcome-banner" class="w-full max-w-md bg-purple-100 border border-purple-300 rounded-xl p-2.5 text-center text-xs text-purple-900 font-bold mb-2 hidden shadow-sm flex justify-between items-center px-4">
+        <span>✨ <span id="user-welcome-text">사용자 님 환영합니다</span> ✨</span>
+        <button id="logout-btn" class="bg-purple-200 hover:bg-purple-300 text-purple-900 px-2 py-1 rounded-lg text-[11px] cursor-pointer">로그아웃</button>
     </div>
 
     <header class="w-full max-w-md bg-white rounded-2xl shadow-md p-3 text-center border-2 border-amber-200 flex flex-col gap-2">
@@ -184,19 +167,46 @@
         </div>
     </div>
 
-    <script>
+    <!-- Firebase 및 게임 로직 스크립트 -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc, onSnapshot, query, orderBy, where } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCGSwTCjZNzOJgI74Jq_qNog-v2Lpgmyqw",
+            authDomain: "dog-game-project.firebaseapp.com",
+            projectId: "dog-game-project",
+            storageBucket: "dog-game-project.firebasestorage.app",
+            messagingSenderId: "536800421164",
+            appId: "1:536800421164:web:3d8b51d96f18c93d81b889",
+            measurementId: "G-TXR7MVHMCH"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        window.db = db;
+        window.auth = auth;
+
         const gameState = { 
-            nickname: "", stage: 1, maxStage: 3, level: 1, tickets: 0, myTickets: [], 
+            userEmail: "", userId: "", stage: 1, maxStage: 3, level: 1, tickets: 0, myTickets: [], 
             currentTab: 'game', gachaPressTimer: null, gachaProgressInterval: null, 
-            gachaHoldTime: 0, requiredHoldTime: 15, maxDailyGacha: 4, masterKey: "loveash"
+            gachaHoldTime: 0, requiredHoldTime: 15, maxDailyGacha: 4, masterKey: "loveash", isRegistering: false
         };
 
         const el = {
-            nicknameModal: document.getElementById('nickname-modal'),
-            nicknameInput: document.getElementById('nickname-input'),
-            nicknameSubmitBtn: document.getElementById('nickname-submit-btn'),
+            authModal: document.getElementById('auth-modal'),
+            authTitle: document.getElementById('auth-title'),
+            authDesc: document.getElementById('auth-desc'),
+            authEmail: document.getElementById('auth-email'),
+            authPassword: document.getElementById('auth-password'),
+            authSubmitBtn: document.getElementById('auth-submit-btn'),
+            authToggleBtn: document.getElementById('auth-toggle-btn'),
             welcomeBanner: document.getElementById('welcome-banner'),
             userWelcomeText: document.getElementById('user-welcome-text'),
+            logoutBtn: document.getElementById('logout-btn'),
             levelDisplay: document.getElementById('level-display'), ticketDisplay: document.getElementById('ticket-display'), stageDisplay: document.getElementById('stage-display'), levelProgress: document.getElementById('level-progress'),
             tabGame: document.getElementById('tab-game'), tabGacha: document.getElementById('tab-gacha'),
             gamePanel: document.getElementById('game-panel'), gachaPanel: document.getElementById('gacha-panel'), gameContent: document.getElementById('game-content'), gameControls: document.getElementById('game-controls'),
@@ -214,9 +224,8 @@
             boardInput: document.getElementById('board-input'), boardSubmitBtn: document.getElementById('board-submit-btn'), boardListContainer: document.getElementById('board-list-container')
         };
 
-        function loadUserData(nick) {
-            gameState.nickname = nick;
-            const savedData = localStorage.getItem('dog_game_user_' + nick);
+        function loadUserData() {
+            const savedData = localStorage.getItem('dog_game_user_' + gameState.userId);
             if (savedData) {
                 try {
                     const parsed = JSON.parse(savedData);
@@ -228,191 +237,219 @@
         }
 
         function saveUserData() {
-            if (!gameState.nickname) return;
-            localStorage.setItem('dog_game_user_' + gameState.nickname, JSON.stringify({
+            if (!gameState.userId) return;
+            localStorage.setItem('dog_game_user_' + gameState.userId, JSON.stringify({
                 tickets: gameState.tickets, level: gameState.level, stage: gameState.stage
             }));
         }
 
-        // 파이어베이스 연동 로직
-        window.addEventListener('firebase-ready', () => {
-            const db = window.db;
-            const { collection, addDoc, onSnapshot, query, orderBy, deleteDoc, doc, updateDoc, getDocs, where } = window.fbModules;
-
-            // 1. 건의함 글 등록
-            el.boardSubmitBtn.onclick = async () => {
-                const text = el.boardInput.value.trim();
-                if (!text) { alert("내용을 입력해주세요!"); return; }
-                
-                const now = new Date();
-                const timeString = String(now.getMonth()+1).padStart(2,'0') + "-" + String(now.getDate()).padStart(2,'0') + " " + String(now.getHours()).padStart(2,'0') + ":" + String(now.getMinutes()).padStart(2,'0');
-                
-                try {
-                    await addDoc(collection(db, "board_posts"), {
-                        writer: gameState.nickname || '익명의 댕댕이',
-                        content: text,
-                        time: timeString,
-                        reply: "",
-                        createdAt: Date.now()
-                    });
-                    el.boardInput.value = "";
-                } catch (e) {
-                    console.error("등록 오류:", e);
-                    alert("게시글 등록 중 오류가 발생했습니다.");
-                }
-            };
-
-            // 2. 건의함 실시간 수신
-            const q = query(collection(db, "board_posts"), orderBy("createdAt", "desc"));
-            onSnapshot(q, (snapshot) => {
-                el.boardListContainer.innerHTML = '';
-                const posts = [];
-                snapshot.forEach((documentSnapshot) => {
-                    posts.push({ id: documentSnapshot.id, ...documentSnapshot.data() });
-                });
-
-                if (posts.length === 0) {
-                    el.boardListContainer.innerHTML = '<div class="text-center text-xs text-slate-400 py-4">등록된 의견이 없습니다. 첫 의견을 남겨보세요!</div>';
-                    return;
-                }
-
-                posts.forEach((p) => {
-                    const item = document.createElement('div');
-                    item.className = "bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs flex flex-col gap-1.5";
-                    let replyHtml = p.reply ? `<div class="bg-amber-50 border border-amber-200 rounded-lg p-2 text-[11px] text-amber-900 mt-1"><span class="font-bold">👑 주인장(관리자) 답글:</span> ${p.reply}</div>` : '';
-
-                    item.innerHTML = `
-                        <div class="flex justify-between items-center text-[11px]">
-                            <span class="font-bold text-amber-600">🐶 ${p.writer}</span>
-                            <span class="text-slate-400">${p.time}</span>
-                        </div>
-                        <div class="text-slate-700 whitespace-pre-wrap">${p.content}</div>
-                        ${replyHtml}
-                    `;
-                    el.boardListContainer.appendChild(item);
-                });
-            });
-
-            // 3. 내 티켓 목록 실시간 동기화
-            window.loadMyFirebaseTickets = async function() {
-                if (!gameState.nickname) return;
-                const ticketQuery = query(collection(db, "user_tickets"), where("owner", "==", gameState.nickname));
-                const snapshot = await getDocs(ticketQuery);
-                gameState.myTickets = [];
-                snapshot.forEach((docSnap) => {
-                    gameState.myTickets.push({ id: docSnap.id, ...docSnap.data() });
-                });
-                el.showTicketBoxBtn.classList.toggle('hidden', gameState.myTickets.length === 0);
-            };
-
-            // 4. 관리자 티켓 조회 기능
-            el.adminCheckBtn.onclick = async () => {
-                const code = el.adminCodeInput.value.trim().toUpperCase();
-                if (!code) { alert("코드를 입력하세요!"); return; }
-
-                const ticketQuery = query(collection(db, "user_tickets"), where("code", "==", code));
-                const snapshot = await getDocs(ticketQuery);
-
-                if (snapshot.empty) {
-                    el.adminResultBox.innerHTML = '<span class="text-red-500 font-bold">존재하지 않는 코드입니다.</span>';
-                    return;
-                }
-
-                let ticketDocId = "";
-                let ticketData = null;
-                snapshot.forEach((docSnap) => {
-                    ticketDocId = docSnap.id;
-                    ticketData = docSnap.data();
-                });
-
-                el.adminResultBox.innerHTML = `
-                    <div class="font-bold mb-0.5 text-purple-700">소유자: ${ticketData.owner}</div>
-                    <div class="font-bold mb-1">${ticketData.prize}</div>
-                    <div class="text-[11px] text-slate-500 mb-2">상태: ${ticketData.isUsed ? '<span class="text-red-500 font-bold">사용완료</span>' : '<span class="text-green-600 font-bold">미사용</span>'}</div>
-                    <button id="firebase-toggle-btn" class="w-full ${ticketData.isUsed ? 'bg-green-600' : 'bg-red-600'} text-white py-1.5 rounded-lg text-xs font-bold cursor-pointer">
-                        ${ticketData.isUsed ? '미사용으로 변경' : '사용 완료 처리'}
-                    </button>
-                `;
-
-                document.getElementById('firebase-toggle-btn').onclick = async () => {
-                    const newStatus = !ticketData.isUsed;
-                    await updateDoc(doc(db, "user_tickets", ticketDocId), { isUsed: newStatus });
-                    alert("티켓 상태가 변경되었습니다!");
-                    el.adminCheckBtn.click();
-                };
-            };
-
-            window.loadAdminBoardList = async function() {
-                const querySnapshot = await getDocs(query(collection(db, "board_posts"), orderBy("createdAt", "desc")));
-                el.adminBoardList.innerHTML = '';
-                
-                if (querySnapshot.empty) {
-                    el.adminBoardList.innerHTML = '<div class="text-center text-xs text-slate-400 py-6">등록된 건의사항이 없습니다.</div>';
-                    return;
-                }
-
-                querySnapshot.forEach((documentSnapshot) => {
-                    const p = { id: documentSnapshot.id, ...documentSnapshot.data() };
-                    const card = document.createElement('div');
-                    card.className = "bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs flex flex-col gap-2";
-                    
-                    card.innerHTML = `
-                        <div class="flex justify-between items-center text-[11px]">
-                            <span class="font-bold text-amber-600">🐶 ${p.writer}</span>
-                            <span class="text-slate-400">${p.time}</span>
-                        </div>
-                        <div class="text-slate-700 font-medium">${p.content}</div>
-                        <div class="flex gap-1.5 items-center mt-1">
-                            <input type="text" id="admin-reply-input-${p.id}" placeholder="관리자 답글..." value="${p.reply || ''}" class="w-full bg-white border border-slate-300 rounded-lg p-1.5 text-[11px]">
-                            <button onclick="saveAdminReply('${p.id}')" class="bg-purple-600 hover:bg-purple-700 text-white px-2.5 py-1.5 rounded-lg text-[11px] font-bold whitespace-nowrap cursor-pointer">저장</button>
-                            <button onclick="deleteBoardPost('${p.id}')" class="bg-red-500 hover:bg-red-600 text-white px-2 py-1.5 rounded-lg text-[11px] font-bold whitespace-nowrap cursor-pointer">삭제</button>
-                        </div>
-                    `;
-                    el.adminBoardList.appendChild(card);
-                });
-            };
-
-            window.saveAdminReply = async function(postId) {
-                const replyText = document.getElementById(`admin-reply-input-${postId}`).value.trim();
-                await updateDoc(doc(db, "board_posts", postId), { reply: replyText });
-                alert("답글이 저장되었습니다!");
-                loadAdminBoardList();
-            };
-
-            window.deleteBoardPost = async function(postId) {
-                if (!confirm("정말 이 건의사항을 강제 삭제하시겠습니까?")) return;
-                await deleteDoc(doc(db, "board_posts", postId));
-                loadAdminBoardList();
-            };
-        });
-
-        window.addEventListener('DOMContentLoaded', () => {
-            const lastNickname = localStorage.getItem('dog_game_last_nickname');
-            if (lastNickname) {
-                gameState.nickname = lastNickname;
-                loadUserData(lastNickname);
-                el.nicknameModal.classList.add('hidden');
+        // 로그인 상태 변화 감지
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                gameState.userId = user.uid;
+                gameState.userEmail = user.email;
+                loadUserData();
+                el.authModal.classList.add('hidden');
                 el.welcomeBanner.classList.remove('hidden');
-                el.userWelcomeText.innerText = `사용자의 닉네임은 ${gameState.nickname} 입니다`;
+                el.userWelcomeText.innerText = `${gameState.userEmail} 님 환영합니다`;
                 loadStage();
-                setTimeout(() => { if (window.loadMyFirebaseTickets) window.loadMyFirebaseTickets(); }, 1000);
+                loadMyFirebaseTickets();
             } else {
-                el.nicknameModal.classList.remove('hidden');
+                gameState.userId = "";
+                gameState.userEmail = "";
+                el.authModal.classList.remove('hidden');
+                el.welcomeBanner.classList.add('hidden');
             }
         });
 
-        el.nicknameSubmitBtn.onclick = () => {
-            const val = el.nicknameInput.value.trim();
-            if (!val) { alert("닉네임을 정확히 입력해주세요!"); return; }
-            gameState.nickname = val;
-            localStorage.setItem('dog_game_last_nickname', val);
-            loadUserData(val);
-            el.nicknameModal.classList.add('hidden');
-            el.welcomeBanner.classList.remove('hidden');
-            el.userWelcomeText.innerText = `사용자의 닉네임은 ${gameState.nickname} 입니다`;
-            loadStage();
-            if (window.loadMyFirebaseTickets) window.loadMyFirebaseTickets();
+        // 로그인/회원가입 전환 토글 버튼
+        el.authToggleBtn.onclick = () => {
+            gameState.isRegistering = !gameState.isRegistering;
+            if (gameState.isRegistering) {
+                el.authTitle.innerText = "댕댕이의 미니게임 회원가입";
+                el.authDesc.innerText = "새로운 계정을 만들어 모험을 시작하세요!";
+                el.authSubmitBtn.innerText = "회원가입 하기 ✨";
+                el.authToggleBtn.innerText = "이미 계정이 있으신가요? 로그인하기";
+            } else {
+                el.authTitle.innerText = "댕댕이의 미니게임 로그인";
+                el.authDesc.innerText = "계정에 로그인하여 모험을 시작하세요!";
+                el.authSubmitBtn.innerText = "로그인하기 🚀";
+                el.authToggleBtn.innerText = "계정이 없으신가요? 회원가입하기";
+            }
         };
+
+        // 인증 버튼 클릭 (로그인 또는 회원가입 처리)
+        el.authSubmitBtn.onclick = async () => {
+            const email = el.authEmail.value.trim();
+            const password = el.authPassword.value.trim();
+            if (!email || !password) {
+                alert("이메일과 비밀번호를 모두 입력해주세요!");
+                return;
+            }
+
+            try {
+                if (gameState.isRegistering) {
+                    await createUserWithEmailAndPassword(auth, email, password);
+                    alert("회원가입 및 로그인 성공!");
+                } else {
+                    await signInWithEmailAndPassword(auth, email, password);
+                }
+            } catch (error) {
+                alert("오류 발생: " + error.message);
+            }
+        };
+
+        // 로그아웃 버튼
+        el.logoutBtn.onclick = async () => {
+            await signOut(auth);
+            window.location.reload();
+        };
+
+        // 1. 건의함 글 등록
+        el.boardSubmitBtn.onclick = async () => {
+            const text = el.boardInput.value.trim();
+            if (!text) { alert("내용을 입력해주세요!"); return; }
+            
+            const now = new Date();
+            const timeString = String(now.getMonth()+1).padStart(2,'0') + "-" + String(now.getDate()).padStart(2,'0') + " " + String(now.getHours()).padStart(2,'0') + ":" + String(now.getMinutes()).padStart(2,'0');
+            
+            try {
+                await addDoc(collection(db, "board_posts"), {
+                    writer: gameState.userEmail ? gameState.userEmail.split('@')[0] : '익명의 댕댕이',
+                    content: text,
+                    time: timeString,
+                    reply: "",
+                    createdAt: Date.now()
+                });
+                el.boardInput.value = "";
+            } catch (e) {
+                console.error("등록 오류:", e);
+                alert("게시글 등록 중 오류가 발생했습니다.");
+            }
+        };
+
+        // 2. 건의함 실시간 수신
+        const q = query(collection(db, "board_posts"), orderBy("createdAt", "desc"));
+        onSnapshot(q, (snapshot) => {
+            el.boardListContainer.innerHTML = '';
+            const posts = [];
+            snapshot.forEach((documentSnapshot) => {
+                posts.push({ id: documentSnapshot.id, ...documentSnapshot.data() });
+            });
+
+            if (posts.length === 0) {
+                el.boardListContainer.innerHTML = '<div class="text-center text-xs text-slate-400 py-4">등록된 의견이 없습니다. 첫 의견을 남겨보세요!</div>';
+                return;
+            }
+
+            posts.forEach((p) => {
+                const item = document.createElement('div');
+                item.className = "bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs flex flex-col gap-1.5";
+                let replyHtml = p.reply ? `<div class="bg-amber-50 border border-amber-200 rounded-lg p-2 text-[11px] text-amber-900 mt-1"><span class="font-bold">👑 주인장(관리자) 답글:</span> ${p.reply}</div>` : '';
+
+                item.innerHTML = `
+                    <div class="flex justify-between items-center text-[11px]">
+                        <span class="font-bold text-amber-600">🐶 ${p.writer}</span>
+                        <span class="text-slate-400">${p.time}</span>
+                    </div>
+                    <div class="text-slate-700 whitespace-pre-wrap">${p.content}</div>
+                    ${replyHtml}
+                `;
+                el.boardListContainer.appendChild(item);
+            });
+        });
+
+        // 3. 내 티켓 목록 실시간 동기화
+        async function loadMyFirebaseTickets() {
+            if (!gameState.userEmail) return;
+            const ticketQuery = query(collection(db, "user_tickets"), where("owner", "==", gameState.userEmail));
+            const snapshot = await getDocs(ticketQuery);
+            gameState.myTickets = [];
+            snapshot.forEach((docSnap) => {
+                gameState.myTickets.push({ id: docSnap.id, ...docSnap.data() });
+            });
+            el.showTicketBoxBtn.classList.toggle('hidden', gameState.myTickets.length === 0);
+        }
+
+        // 4. 관리자 티켓 조회 기능
+        el.adminCheckBtn.onclick = async () => {
+            const code = el.adminCodeInput.value.trim().toUpperCase();
+            if (!code) { alert("코드를 입력하세요!"); return; }
+
+            const ticketQuery = query(collection(db, "user_tickets"), where("code", "==", code));
+            const snapshot = await getDocs(ticketQuery);
+
+            if (snapshot.empty) {
+                el.adminResultBox.innerHTML = '<span class="text-red-500 font-bold">존재하지 않는 코드입니다.</span>';
+                return;
+            }
+
+            let ticketDocId = "";
+            let ticketData = null;
+            snapshot.forEach((docSnap) => {
+                ticketDocId = docSnap.id;
+                ticketData = docSnap.data();
+            });
+
+            el.adminResultBox.innerHTML = `
+                <div class="font-bold mb-0.5 text-purple-700">소유자: ${ticketData.owner}</div>
+                <div class="font-bold mb-1">${ticketData.prize}</div>
+                <div class="text-[11px] text-slate-500 mb-2">상태: ${ticketData.isUsed ? '<span class="text-red-500 font-bold">사용완료</span>' : '<span class="text-green-600 font-bold">미사용</span>'}</div>
+                <button id="firebase-toggle-btn" class="w-full ${ticketData.isUsed ? 'bg-green-600' : 'bg-red-600'} text-white py-1.5 rounded-lg text-xs font-bold cursor-pointer">
+                    ${ticketData.isUsed ? '미사용으로 변경' : '사용 완료 처리'}
+                </button>
+            `;
+
+            document.getElementById('firebase-toggle-btn').onclick = async () => {
+                const newStatus = !ticketData.isUsed;
+                await updateDoc(doc(db, "user_tickets", ticketDocId), { isUsed: newStatus });
+                alert("티켓 상태가 변경되었습니다!");
+                el.adminCheckBtn.click();
+            };
+        };
+
+        async function loadAdminBoardList() {
+            const querySnapshot = await getDocs(query(collection(db, "board_posts"), orderBy("createdAt", "desc")));
+            el.adminBoardList.innerHTML = '';
+            
+            if (querySnapshot.empty) {
+                el.adminBoardList.innerHTML = '<div class="text-center text-xs text-slate-400 py-6">등록된 건의사항이 없습니다.</div>';
+                return;
+            }
+
+            querySnapshot.forEach((documentSnapshot) => {
+                const p = { id: documentSnapshot.id, ...documentSnapshot.data() };
+                const card = document.createElement('div');
+                card.className = "bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs flex flex-col gap-2";
+                
+                card.innerHTML = `
+                    <div class="flex justify-between items-center text-[11px]">
+                        <span class="font-bold text-amber-600">🐶 ${p.writer}</span>
+                        <span class="text-slate-400">${p.time}</span>
+                    </div>
+                    <div class="text-slate-700 font-medium">${p.content}</div>
+                    <div class="flex gap-1.5 items-center mt-1">
+                        <input type="text" id="admin-reply-input-${p.id}" placeholder="관리자 답글..." value="${p.reply || ''}" class="w-full bg-white border border-slate-300 rounded-lg p-1.5 text-[11px]">
+                        <button id="save-reply-${p.id}" class="bg-purple-600 hover:bg-purple-700 text-white px-2.5 py-1.5 rounded-lg text-[11px] font-bold whitespace-nowrap cursor-pointer">저장</button>
+                        <button id="delete-post-${p.id}" class="bg-red-500 hover:bg-red-600 text-white px-2 py-1.5 rounded-lg text-[11px] font-bold whitespace-nowrap cursor-pointer">삭제</button>
+                    </div>
+                `;
+                el.adminBoardList.appendChild(card);
+
+                document.getElementById(`save-reply-${p.id}`).onclick = async () => {
+                    const replyText = document.getElementById(`admin-reply-input-${p.id}`).value.trim();
+                    await updateDoc(doc(db, "board_posts", p.id), { reply: replyText });
+                    alert("답글이 저장되었습니다!");
+                    loadAdminBoardList();
+                };
+
+                document.getElementById(`delete-post-${p.id}`).onclick = async () => {
+                    if (!confirm("정말 이 건의사항을 강제 삭제하시겠습니까?")) return;
+                    await deleteDoc(doc(db, "board_posts", p.id));
+                    loadAdminBoardList();
+                };
+            });
+        }
 
         function getTodayString() {
             const now = new Date();
@@ -421,19 +458,19 @@
 
         function getRemainingGachaCount() {
             const today = getTodayString();
-            const storedDate = localStorage.getItem('dog_gacha_date_' + gameState.nickname);
+            const storedDate = localStorage.getItem('dog_gacha_date_' + gameState.userId);
             if (storedDate !== today) {
-                localStorage.setItem('dog_gacha_date_' + gameState.nickname, today);
-                localStorage.setItem('dog_gacha_count_' + gameState.nickname, '0');
+                localStorage.setItem('dog_gacha_date_' + gameState.userId, today);
+                localStorage.setItem('dog_gacha_count_' + gameState.userId, '0');
                 return gameState.maxDailyGacha;
             }
-            return Math.max(0, gameState.maxDailyGacha - parseInt(localStorage.getItem('dog_gacha_count_' + gameState.nickname) || '0', 10));
+            return Math.max(0, gameState.maxDailyGacha - parseInt(localStorage.getItem('dog_gacha_count_' + gameState.userId) || '0', 10));
         }
 
         function useGachaCount() {
-            localStorage.setItem('dog_gacha_date_' + gameState.nickname, getTodayString());
-            const used = parseInt(localStorage.getItem('dog_gacha_count_' + gameState.nickname) || '0', 10);
-            localStorage.setItem('dog_gacha_count_' + gameState.nickname, used + 1);
+            localStorage.setItem('dog_gacha_date_' + gameState.userId, getTodayString());
+            const used = parseInt(localStorage.getItem('dog_gacha_count_' + gameState.userId) || '0', 10);
+            localStorage.setItem('dog_gacha_count_' + gameState.userId, used + 1);
         }
 
         function updateUI() {
@@ -577,22 +614,22 @@
             let prize = "꽝";
             if (rand < 0.5) {
                 prize = "👑 2천원 이내의 원하는 것";
-            } else if (rand < 1.5) { // 0.5% ~ 1.5% (1.0%)
+            } else if (rand < 1.5) { 
                 prize = "🍛 주인장이 사주는 밥";
-            } else if (rand < 4.5) { // 1.5% ~ 4.5% (3.0%)
+            } else if (rand < 4.5) { 
                 prize = "💻 원하는 프로그램 제작";
-            } else if (rand < 25.0) { // 4.5% ~ 25.0% (20.5%)
+            } else if (rand < 25.0) { 
                 prize = "🍖 간식 (1~2개)";
             }
             
             if (prize !== "꽝") {
                 const now = new Date();
                 const secureCode = "TICKET_" + Math.random().toString(36).substring(2, 8).toUpperCase();
-                const newTicket = { owner: gameState.nickname, prize, time: now.toLocaleString(), code: secureCode, isUsed: false };
+                const newTicket = { owner: gameState.userEmail, prize, time: now.toLocaleString(), code: secureCode, isUsed: false };
                 
                 try {
-                    await window.fbModules.addDoc(window.fbModules.collection(window.db, "user_tickets"), newTicket);
-                    if (window.loadMyFirebaseTickets) window.loadMyFirebaseTickets();
+                    await addDoc(collection(db, "user_tickets"), newTicket);
+                    loadMyFirebaseTickets();
                 } catch(e) {
                     console.error("티켓 저장 오류:", e);
                 }
@@ -613,7 +650,7 @@
         el.closeRateBtn.onclick = () => el.rateModal.className = "fixed inset-0 bg-black/50 hidden items-center justify-center p-4 z-50";
 
         el.showTicketBoxBtn.onclick = async () => {
-            if (window.loadMyFirebaseTickets) await window.loadMyFirebaseTickets();
+            await loadMyFirebaseTickets();
             el.ticketListContainer.innerHTML = gameState.myTickets.length === 0 ? '<div class="text-center text-xs text-slate-400 py-6">보관된 티켓이 없습니다.</div>' : '';
             gameState.myTickets.forEach((t, idx) => {
                 const card = document.createElement('div');
@@ -651,7 +688,7 @@
             el.adminTicketContent.classList.toggle('flex', tabName === 'ticket');
             el.adminBoardContent.classList.toggle('hidden', tabName !== 'board');
             el.adminBoardContent.classList.toggle('flex', tabName === 'board');
-            if (tabName === 'board' && window.loadAdminBoardList) window.loadAdminBoardList();
+            if (tabName === 'board') loadAdminBoardList();
         }
         el.adminTabTicket.onclick = () => switchAdminTab('ticket');
         el.adminTabBoard.onclick = () => switchAdminTab('board');
