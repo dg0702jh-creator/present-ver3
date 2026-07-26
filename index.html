@@ -17,6 +17,7 @@
         <div class="flex justify-between items-center w-full">
             <span id="level-display" class="text-lg text-amber-600 font-bold">🐶 LV. 1 모험</span>
             <div class="flex gap-1.5">
+                <button id="show-admin-btn" class="text-xs bg-slate-100 text-slate-700 px-2 py-1 rounded-lg hover:bg-slate-200 font-bold">🛠️ 관리자</button>
                 <button id="show-ticket-box-btn" class="text-xs bg-purple-100 text-purple-800 px-2.5 py-1 rounded-lg hover:bg-purple-200 font-bold hidden">🎟️ 티켓함</button>
                 <button id="show-rate-btn" class="text-xs bg-amber-100 text-amber-800 px-2.5 py-1 rounded-lg hover:bg-amber-200 font-bold">📊 확률표</button>
             </div>
@@ -43,7 +44,7 @@
 
         <div id="gacha-panel" class="hidden w-full bg-white rounded-3xl shadow-xl border-4 border-purple-300 p-5 flex flex-col items-center justify-center min-h-[420px]">
             <h3 class="text-2xl text-purple-700 mb-1 font-bold">🔮 신비한 댕댕이 캡슐</h3>
-            <p class="text-xs text-slate-500 mb-3 text-center">버튼을 <b>꾹~ 누르고 있으면</b><br>캡슐이 열리며 선물이 튀어나옵니다!</p>
+            <p id="daily-limit-text" class="text-xs text-slate-500 mb-2 text-center">오늘 남은 뽑기 횟수: <b class="text-purple-600">4 / 4회</b><br>버튼을 <b>꾹~ 누르고 있으면</b> 캡슐이 열립니다!</p>
             
             <div class="w-48 bg-slate-100 h-4 rounded-full overflow-hidden border border-purple-200 mb-3 relative">
                 <div id="gacha-progress" class="progress-bar bg-purple-500 h-full w-0"></div>
@@ -59,6 +60,7 @@
 
     <footer class="text-xs text-slate-400 pb-1">&copy; 2026 댕댕이 미니게임 빌더.</footer>
 
+    <!-- 확률표 모달 -->
     <div id="rate-modal" class="fixed inset-0 bg-black/50 hidden items-center justify-center p-4 z-50">
         <div class="bg-white rounded-2xl max-w-sm w-full p-5 shadow-2xl border-2 border-amber-400">
             <h4 class="text-lg font-bold text-center mb-3 text-amber-600">📊 캡슐 뽑기 확률표</h4>
@@ -81,6 +83,7 @@
         </div>
     </div>
 
+    <!-- 티켓함 모달 -->
     <div id="ticket-modal" class="fixed inset-0 bg-black/50 hidden items-center justify-center p-4 z-50">
         <div class="bg-white rounded-2xl max-w-md w-full p-5 shadow-2xl border-2 border-purple-400 max-h-[80vh] flex flex-col">
             <h4 class="text-lg font-bold text-center mb-1 text-purple-700">🎟️ 내 상품 티켓 보관함</h4>
@@ -90,27 +93,86 @@
         </div>
     </div>
 
+    <!-- 관리자 모달 -->
+    <div id="admin-modal" class="fixed inset-0 bg-black/50 hidden items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-5 shadow-2xl border-2 border-slate-700 flex flex-col">
+            <h4 class="text-lg font-bold text-center mb-2 text-slate-800">🛠️ 관리자 티켓 검증 시스템</h4>
+            <p class="text-[11px] text-slate-500 mb-3 text-center">발급된 티켓 코드를 입력하여 사용 여부를 확인하고 변경하세요.</p>
+            <input id="admin-code-input" type="text" placeholder="티켓 코드 입력 (예: TICKET_HASH_...)" class="w-full border border-slate-300 rounded-xl p-2.5 text-xs mb-2 font-mono uppercase">
+            <button id="admin-check-btn" class="w-full bg-slate-800 text-white py-2.5 rounded-xl text-xs font-bold mb-3 hover:bg-slate-700">티켓 조회하기</button>
+            <div id="admin-result-box" class="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs min-h-[90px] mb-3 flex flex-col justify-center items-center text-center text-slate-500">
+                코드를 입력하고 조회 버튼을 눌러주세요.
+            </div>
+            <button id="close-admin-btn" class="w-full bg-slate-200 text-slate-700 py-2 rounded-xl text-xs font-bold">닫기</button>
+        </div>
+    </div>
+
     <script>
-        const gameState = { stage: 1, maxStage: 3, level: 1, tickets: 0, myTickets: [], currentTab: 'game', gachaPressTimer: null, gachaProgressInterval: null, gachaHoldTime: 0, requiredHoldTime: 15 };
+        const gameState = { 
+            stage: 1, 
+            maxStage: 3, 
+            level: 1, 
+            tickets: 0, 
+            myTickets: [], 
+            currentTab: 'game', 
+            gachaPressTimer: null, 
+            gachaProgressInterval: null, 
+            gachaHoldTime: 0, 
+            requiredHoldTime: 15,
+            maxDailyGacha: 4
+        };
+
         const el = {
             levelDisplay: document.getElementById('level-display'), ticketDisplay: document.getElementById('ticket-display'), stageDisplay: document.getElementById('stage-display'), levelProgress: document.getElementById('level-progress'),
             tabGame: document.getElementById('tab-game'), tabGacha: document.getElementById('tab-gacha'),
             gamePanel: document.getElementById('game-panel'), gachaPanel: document.getElementById('gacha-panel'), gameContent: document.getElementById('game-content'), gameControls: document.getElementById('game-controls'),
-            gachaBtn: document.getElementById('gacha-btn'), gachaProgress: document.getElementById('gacha-progress'), gachaResult: document.getElementById('gacha-result'), rateModal: document.getElementById('rate-modal'),
-            showRateBtn: document.getElementById('show-rate-btn'), closeRateBtn: document.getElementById('close-rate-btn'),
-            ticketModal: document.getElementById('ticket-modal'), showTicketBoxBtn: document.getElementById('show-ticket-box-btn'), closeTicketBtn: document.getElementById('close-ticket-btn'), ticketListContainer: document.getElementById('ticket-list-container')
+            gachaBtn: document.getElementById('gacha-btn'), gachaProgress: document.getElementById('gacha-progress'), gachaResult: document.getElementById('gacha-result'), 
+            dailyLimitText: document.getElementById('daily-limit-text'),
+            rateModal: document.getElementById('rate-modal'), showRateBtn: document.getElementById('show-rate-btn'), closeRateBtn: document.getElementById('close-rate-btn'),
+            ticketModal: document.getElementById('ticket-modal'), showTicketBoxBtn: document.getElementById('show-ticket-box-btn'), closeTicketBtn: document.getElementById('close-ticket-btn'), ticketListContainer: document.getElementById('ticket-list-container'),
+            adminModal: document.getElementById('admin-modal'), showAdminBtn: document.getElementById('show-admin-btn'), closeAdminBtn: document.getElementById('close-admin-btn'),
+            adminCodeInput: document.getElementById('admin-code-input'), adminCheckBtn: document.getElementById('admin-check-btn'), adminResultBox: document.getElementById('admin-result-box')
         };
+
+        // 일일 뽑기 횟수 관리 (localStorage 이용)
+        function getTodayString() {
+            const now = new Date();
+            return now.getFullYear() + "-" + String(now.getMonth()+1).padStart(2,'0') + "-" + String(now.getDate()).padStart(2,'0');
+        }
+
+        function getRemainingGachaCount() {
+            const today = getTodayString();
+            const storedDate = localStorage.getItem('dog_gacha_date');
+            if (storedDate !== today) {
+                localStorage.setItem('dog_gacha_date', today);
+                localStorage.setItem('dog_gacha_count', '0');
+                return gameState.maxDailyGacha;
+            }
+            const used = parseInt(localStorage.getItem('dog_gacha_count') || '0', 10);
+            return Math.max(0, gameState.maxDailyGacha - used);
+        }
+
+        function useGachaCount() {
+            const today = getTodayString();
+            localStorage.setItem('dog_gacha_date', today);
+            const used = parseInt(localStorage.getItem('dog_gacha_count') || '0', 10);
+            localStorage.setItem('dog_gacha_count', used + 1);
+        }
 
         function updateUI() {
             el.ticketDisplay.innerText = "🎟️ 뽑기권: " + gameState.tickets + "개";
             el.levelDisplay.innerText = "🐶 LV. " + gameState.level + " 모험";
             el.stageDisplay.innerText = gameState.stage + "단계 미션 진행중";
             el.levelProgress.style.width = ((gameState.stage - 1) / gameState.maxStage) * 100 + "%";
+            
             if (gameState.myTickets.length > 0) {
                 el.showTicketBoxBtn.classList.remove('hidden');
             } else {
                 el.showTicketBoxBtn.classList.add('hidden');
             }
+
+            const leftCount = getRemainingGachaCount();
+            el.dailyLimitText.innerHTML = `오늘 남은 뽑기 횟수: <b class="text-purple-600">${leftCount} / ${gameState.maxDailyGacha}회</b><br>버튼을 <b>꾹~ 누르고 있으면</b> 캡슐이 열립니다!`;
         }
 
         function switchTab(tab) {
@@ -123,21 +185,45 @@
                 el.tabGacha.className = "flex-1 py-2 rounded-xl bg-purple-600 text-white shadow-md text-base font-bold";
                 el.tabGame.className = "flex-1 py-2 rounded-xl bg-slate-200 text-slate-600 shadow-md text-base font-bold";
                 el.gamePanel.classList.add('hidden'); el.gachaPanel.classList.remove('hidden');
+                updateUI();
             }
         }
         el.tabGame.onclick = () => switchTab('game');
         el.tabGacha.onclick = () => switchTab('gacha');
 
-        // 미니게임 3종 정의 (안전하게 분리된 구조)
+        // 1단계: 난이도별 대규모 퀴즈 풀 (레벨이 올라갈수록 난이도 상승)
+        const quizPoolByLevel = {
+            1: [
+                { q: "강아지는 단맛보다 짠맛을 더 강하게 느낀다?", answer: false, hint: "강아지는 짠맛보다 단맛/신맛에 민감해요!" },
+                { q: "강아지가 꼬리를 흔드는 것은 무조건 기분 좋다는 뜻이다?", answer: false, hint: "경계하거나 긴장할 때도 흔들 수 있어요!" },
+                { q: "강아지의 후각은 사람보다 수만~수백만 배 뛰어나다?", answer: true, hint: "정답입니다! 냄새를 아주 잘 맡아요." },
+                { q: "강아지에게 초콜릿은 해로운 음식이다?", answer: true, hint: "초콜릿의 테오브로민 성분은 위험해요!" },
+                { q: "강아지도 사람처럼 땀을 온몸으로 흘린다?", answer: false, hint: "강아지는 발바닥이나 혀로 체온을 조절해요." }
+            ],
+            2: [
+                { q: "성견(다 자란 개)의 이빨 개수는 총 42개이다?", answer: true, hint: "위턱 20개, 아래턱 22개로 총 42개입니다." },
+                { q: "강아지의 시력은 사람보다 훨씬 뛰어나며 색맹이 아니다?", answer: false, hint: "강아지는 적록 색맹이며 시력은 사람보다 흐려요." },
+                { q: "강아지가 하품하는 것은 항상 졸리다는 뜻이다?", answer: false, hint: "스트레스나 긴장을 완화하기 위해 하품하기도 해요." },
+                { q: "대부분의 강아지는 왼쪽 귀보다 오른쪽 귀의 청력이 더 좋다?", answer: false, hint: "청력 차이는 좌우가 비슷하며 소리 방향을 잘 찾아요." }
+            ],
+            3: [
+                { q: "세계에서 가장 빠른 강아지 품종 중 하나는 그레이하운드이다?", answer: true, hint: "시속 70km 이상으로 달릴 수 있어요!" },
+                { q: "강아지의 지문 역할을 하는 고유한 부위는 코의 무늬(비문)이다?", answer: true, hint: "사람의 지문처럼 강아지마다 코 무늬가 다릅니다." },
+                { q: "강아지의 정상 체온은 사람보다 약간 낮은 35도이다?", answer: false, hint: "강아지의 정상 체온은 약 38~39도로 사람보다 높아요." }
+            ]
+        };
+
         const game1Obj = {
             title: "🐾 1단계: 댕댕이 상식 퀴즈 챌린지", 
-            desc: "총 <b>3문제</b>의 퀴즈를 모두 맞히세요!<br>틀리면 처음부터 다시 도전합니다.",
+            desc: "총 <b>3문제</b>의 퀴즈를 모두 맞히세요!<br>틀리면 랜덤 새 문제로 다시 도전합니다.",
             start: function(onClear) {
-                const quizList = [
-                    { q: "강아지는 단맛보다 짠맛을 더 강하게 느낀다?", answer: false, hint: "강아지는 짠맛보다 단맛/신맛에 민감해요!" },
-                    { q: "강아지가 꼬리를 흔드는 것은 무조건 기분 좋다는 뜻이다?", answer: false, hint: "경계하거나 긴장할 때도 흔들 수 있어요!" },
-                    { q: "강아지의 후각은 사람보다 수만~수백만 배 뛰어나다?", answer: true, hint: "정답입니다! 냄새를 아주 잘 맡아요." }
-                ];
+                // 현재 레벨에 맞는 퀴즈 풀 가져오기 (레벨이 3을 넘으면 레벨 3 풀 사용)
+                let currentLevelKey = Math.min(gameState.level, 3);
+                let pool = [...quizPoolByLevel[currentLevelKey]];
+                
+                // 무작위로 3문제 추출
+                pool.sort(() => Math.random() - 0.5);
+                const quizList = pool.slice(0, 3);
                 let currentQuizIdx = 0;
 
                 function showQuiz() {
@@ -146,7 +232,7 @@
                         return;
                     }
                     const qObj = quizList[currentQuizIdx];
-                    el.gameContent.innerHTML = '<div class="text-sm font-bold mb-1">' + game1Obj.title + '</div>' +
+                    el.gameContent.innerHTML = '<div class="text-sm font-bold mb-1">' + game1Obj.title + ' (LV.' + gameState.level + ')</div>' +
                         '<div class="text-xs text-slate-500 mb-3">문제 ' + (currentQuizIdx + 1) + ' / 3</div>' +
                         '<div class="bg-amber-50 p-4 rounded-xl border border-amber-200 mb-4 text-base font-bold text-slate-700 min-h-[70px] flex items-center justify-center">' + qObj.q + '</div>';
 
@@ -171,8 +257,8 @@
                         currentQuizIdx++;
                         showQuiz();
                     } else {
-                        alert("틀렸습니다! 힌트: " + qObj.hint + "\n처음부터 다시 도전하세요!");
-                        loadStage();
+                        alert("틀렸습니다! 힌트: " + qObj.hint + "\n새로운 문제들로 다시 도전하세요!");
+                        loadStage(); // 틀리면 새 문제를 뽑으며 재시작
                     }
                 }
 
@@ -359,6 +445,12 @@
 
         // 캡슐 뽑기 로직
         function startPress() {
+            if (getRemainingGachaCount() <= 0) {
+                el.gachaResult.innerText = "⏳ 오늘 뽑기 횟수를 모두 소모했습니다! (하루 4번 제한)";
+                el.gachaResult.className = "mt-3 text-center text-xs font-bold text-red-500 min-h-[40px]";
+                return;
+            }
+
             if (gameState.tickets <= 0) {
                 el.gachaResult.innerText = "🎟️ 뽑기권이 부족합니다! 게임을 모두 클리어하고 오세요!";
                 el.gachaResult.className = "mt-3 text-center text-xs font-bold text-red-500 min-h-[40px]";
@@ -377,7 +469,7 @@
 
         function cancelPress() {
             clearTimeout(gameState.gachaPressTimer); clearInterval(gameState.gachaProgressInterval);
-            if (gameState.tickets > 0 && gameState.gachaHoldTime < gameState.requiredHoldTime) {
+            if (gameState.tickets > 0 && gameState.gachaHoldTime < gameState.requiredHoldTime && getRemainingGachaCount() > 0) {
                 el.gachaProgress.style.width = '0%'; 
                 el.gachaResult.innerText = "조금 더 길게 꾹 누르고 계세요!";
                 el.gachaResult.className = "mt-3 text-center text-xs font-bold text-red-500 min-h-[40px]";
@@ -385,8 +477,10 @@
         }
 
         async function triggerGacha() {
-            if (gameState.tickets <= 0) return;
+            if (gameState.tickets <= 0 || getRemainingGachaCount() <= 0) return;
+            
             gameState.tickets--;
+            useGachaCount();
             updateUI();
 
             const rand = Math.random() * 100;
@@ -409,7 +503,8 @@
                 const timeString = now.getFullYear() + "-" + String(now.getMonth()+1).padStart(2,'0') + "-" + String(now.getDate()).padStart(2,'0') + " " + String(now.getHours()).padStart(2,'0') + ":" + String(now.getMinutes()).padStart(2,'0') + ":" + String(now.getSeconds()).padStart(2,'0');
                 const secureCode = "TICKET_HASH_" + Math.random().toString(36).substring(2, 10).toUpperCase() + "_" + now.getTime().toString(36).toUpperCase();
 
-                gameState.myTickets.push({ prize: prize, time: timeString, code: secureCode });
+                // isUsed: 사용 여부 관리 속성 추가
+                gameState.myTickets.push({ prize: prize, time: timeString, code: secureCode, isUsed: false });
                 updateUI();
 
                 el.gachaResult.innerHTML = prize + '<br><span class="text-[11px] text-purple-600 font-normal">🎟️ 티켓함에 저장되었습니다!</span>';
@@ -436,12 +531,17 @@
         el.showRateBtn.onclick = () => el.rateModal.className = "fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50";
         el.closeRateBtn.onclick = () => el.rateModal.className = "fixed inset-0 bg-black/50 hidden items-center justify-center p-4 z-50";
 
+        // 티켓 보관함 모달 보기
         el.showTicketBoxBtn.onclick = () => {
             el.ticketListContainer.innerHTML = "";
+            if (gameState.myTickets.length === 0) {
+                el.ticketListContainer.innerHTML = '<div class="text-center text-xs text-slate-400 py-6">보관된 티켓이 없습니다.</div>';
+            }
             gameState.myTickets.forEach((t, idx) => {
                 const card = document.createElement('div');
                 card.className = "bg-purple-50 border-2 border-purple-200 rounded-xl p-2.5 text-xs";
-                card.innerHTML = '<div class="font-bold text-purple-900 mb-1">🎫 당첨 상품 #' + (idx+1) + '</div>' +
+                const statusBadge = t.isUsed ? '<span class="text-red-500 font-bold">(사용 완료 O)</span>' : '<span class="text-green-600 font-bold">(미사용 X)</span>';
+                card.innerHTML = '<div class="flex justify-between items-center mb-1"><span class="font-bold text-purple-900">🎫 당첨 상품 #' + (idx+1) + '</span> ' + statusBadge + '</div>' +
                                  '<div class="text-slate-700 font-semibold mb-1">' + t.prize + '</div>' +
                                  '<div class="text-slate-500 text-[10px] mb-1">⏱️ 당첨 시간: ' + t.time + '</div>' +
                                  '<div class="bg-white p-1 rounded border border-purple-100 font-mono text-[10px] text-purple-700 select-all">🔑 CODE: ' + t.code + '</div>';
@@ -450,6 +550,48 @@
             el.ticketModal.className = "fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50";
         };
         el.closeTicketBtn.onclick = () => el.ticketModal.className = "fixed inset-0 bg-black/50 hidden items-center justify-center p-4 z-50";
+
+        // 관리자 모드 관련 로직
+        el.showAdminBtn.onclick = () => {
+            el.adminCodeInput.value = "";
+            el.adminResultBox.innerHTML = "코드를 입력하고 조회 버튼을 눌러주세요.";
+            el.adminModal.className = "fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50";
+        };
+        el.closeAdminBtn.onclick = () => el.adminModal.className = "fixed inset-0 bg-black/50 hidden items-center justify-center p-4 z-50";
+
+        el.adminCheckBtn.onclick = () => {
+            const inputCode = el.adminCodeInput.value.trim().toUpperCase();
+            if (!inputCode) {
+                el.adminResultBox.innerHTML = '<span class="text-red-500 font-bold">코드를 입력해주세요!</span>';
+                return;
+            }
+
+            const foundTicket = gameState.myTickets.find(t => t.code.toUpperCase() === inputCode);
+            if (!foundTicket) {
+                el.adminResultBox.innerHTML = '<span class="text-red-500 font-bold">❌ 존재하지 않거나 잘못된 코드입니다.</span>';
+                return;
+            }
+
+            renderAdminResult(foundTicket);
+        };
+
+        function renderAdminResult(ticket) {
+            const statusText = ticket.isUsed ? '<span class="text-red-600 font-bold">사용 완료 (O)</span>' : '<span class="text-green-600 font-bold">미사용 (X)</span>';
+            const toggleBtnText = ticket.isUsed ? '미사용으로 변경하기' : '사용 완료로 처리하기';
+            const btnColor = ticket.isUsed ? 'bg-amber-600 hover:bg-amber-700' : 'bg-red-600 hover:bg-red-700';
+
+            el.adminResultBox.innerHTML = `
+                <div class="text-slate-800 font-bold mb-1">${ticket.prize}</div>
+                <div class="text-slate-600 text-[11px] mb-1">📅 ${ticket.time} 에 뽑은 티켓</div>
+                <div class="mb-2 text-[11px]">상태: ${statusText}</div>
+                <button id="toggle-use-btn" class="w-full ${btnColor} text-white py-1.5 rounded-lg text-xs font-bold transition-colors">${toggleBtnText}</button>
+            `;
+
+            document.getElementById('toggle-use-btn').onclick = () => {
+                ticket.isUsed = !ticket.isUsed;
+                renderAdminResult(ticket);
+            };
+        }
 
         loadStage();
     </script>
