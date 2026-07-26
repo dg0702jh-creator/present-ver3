@@ -33,7 +33,7 @@
             <p id="auth-desc" class="text-xs opacity-70 mb-4">계정을 만들고 모험을 시작하세요!</p>
             
             <div class="w-full flex flex-col gap-3 mb-4">
-                <input id="auth-email" type="text" placeholder="이메일 주소" class="w-full border-2 rounded-xl p-3 text-sm text-center font-bold focus:outline-none">
+                <input id="auth-email" type="text" placeholder="이메일 주소 (관리자는 '관리자' 입력 가능)" class="w-full border-2 rounded-xl p-3 text-sm text-center font-bold focus:outline-none">
                 <input id="auth-password" type="password" placeholder="비밀번호 (6자리 이상)" class="w-full border-2 rounded-xl p-3 text-sm text-center font-bold focus:outline-none">
                 
                 <div id="nickname-container" class="w-full">
@@ -222,12 +222,12 @@
         // 🛠️ 아래 firebaseConfig에 본인의 값만 넣어주세요!
         // ==========================================
         const firebaseConfig = {
-            apiKey: "AIzaSyBgTLkPAKa61ueVr_Eb5OLTwMlZ2ufSFWg",
-            authDomain: "dog-game--email-post.firebaseapp.com",
-            projectId: "dog-game--email-post",
-            storageBucket: "dog-game--email-post.firebasestorage.app",
-            messagingSenderId: "195999205100",
-            appId: "1:195999205100:web:559aa6c80a8899a4f787c9"
+            apiKey: "여기에_API_KEY_입력",
+            authDomain: "여기에_AUTHDOMAIN_입력",
+            projectId: "email-post",
+            storageBucket: "여기에_STORAGEBUCKET_입력",
+            messagingSenderId: "여기에_MESSAGINGSENDERID_입력",
+            appId: "여기에_APPID_입력"
         };
 
         const app = initializeApp(firebaseConfig);
@@ -236,6 +236,13 @@
 
         window.db = db;
         window.auth = auth;
+
+        const ADMIN_EMAIL = "djlim1072@gmail.com";
+        const ADMIN_NICKNAME = "관리자";
+
+        function checkIsAdmin() {
+            return gameState.userEmail === ADMIN_EMAIL;
+        }
 
         const gameState = { 
             userEmail: "", userId: "", userNickname: "댕댕이", stage: 1, maxStage: 3, level: 1, tickets: 0, myTickets: [], 
@@ -277,7 +284,6 @@
             boardInput: document.getElementById('board-input'), boardSubmitBtn: document.getElementById('board-submit-btn'), boardListContainer: document.getElementById('board-list-container')
         };
 
-        // 테마 설정 불러오기 및 적용
         function setTheme(themeName) {
             document.body.className = `theme-${themeName} min-h-screen flex flex-col items-center justify-between p-4 selection:bg-amber-200`;
             el.themeSelect.value = themeName;
@@ -322,6 +328,10 @@
                     gameState.userNickname = user.email.split('@')[0];
                 }
 
+                if (checkIsAdmin()) {
+                    gameState.userNickname = ADMIN_NICKNAME;
+                }
+
                 loadUserDataLocally();
                 el.authModal.classList.add('hidden');
                 el.welcomeBanner.classList.remove('hidden');
@@ -349,7 +359,7 @@
             } else {
                 el.authTitle.innerText = "댕댕이의 미니게임 로그인";
                 el.authDesc.innerText = "가입한 이메일과 비밀번호를 입력하세요!";
-                el.authEmail.placeholder = "이메일 주소";
+                el.authEmail.placeholder = "이메일 주소 (관리자는 '관리자' 입력 가능)";
                 el.nicknameContainer.classList.add('hidden');
                 el.authSubmitBtn.innerText = "로그인하기 🚀";
                 el.authToggleBtn.innerText = "계정이 없으신가요? 회원가입하기";
@@ -357,7 +367,7 @@
         };
 
         el.authSubmitBtn.onclick = async () => {
-            const email = el.authEmail.value.trim();
+            let email = el.authEmail.value.trim();
             const password = el.authPassword.value.trim();
             const nickname = el.authNickname.value.trim();
 
@@ -366,14 +376,28 @@
                 return;
             }
 
+            // '관리자'라고 입력했을 경우 자동으로 관리자 이메일로 전환
+            if (email === "관리자") {
+                email = ADMIN_EMAIL;
+            }
+
             try {
                 if (gameState.isRegistering) {
                     if (!nickname) { alert("닉네임을 입력해주세요!"); return; }
                     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                    
+                    const finalNickname = (email === ADMIN_EMAIL) ? ADMIN_NICKNAME : nickname;
+
                     await setDoc(doc(db, "users_profile", userCredential.user.uid), {
-                        uid: userCredential.user.uid, email, nickname, createdAt: Date.now()
+                        uid: userCredential.user.uid, email, nickname: finalNickname, createdAt: Date.now()
                     });
-                    alert("회원가입 성공!");
+
+                    localStorage.setItem('dog_game_date_' + userCredential.user.uid, getTodayString());
+                    localStorage.setItem('dog_game_count_' + userCredential.user.uid, '0');
+                    localStorage.setItem('dog_gacha_date_' + userCredential.user.uid, getTodayString());
+                    localStorage.setItem('dog_gacha_count_' + userCredential.user.uid, '0');
+
+                    alert("회원가입 성공! 게임 기회 3회가 제공되었습니다.");
                 } else {
                     await signInWithEmailAndPassword(auth, email, password);
                 }
@@ -387,13 +411,13 @@
             window.location.reload();
         };
 
-        // 날짜별 일일 제한 계산 함수들
         function getTodayString() {
             const now = new Date();
             return now.getFullYear() + "-" + String(now.getMonth()+1).padStart(2,'0') + "-" + String(now.getDate()).padStart(2,'0');
         }
 
         function getRemainingGameCount() {
+            if (checkIsAdmin()) return 999;
             const today = getTodayString();
             const storedDate = localStorage.getItem('dog_game_date_' + gameState.userId);
             if (storedDate !== today) {
@@ -405,12 +429,14 @@
         }
 
         function useGameCount() {
+            if (checkIsAdmin()) return;
             localStorage.setItem('dog_game_date_' + gameState.userId, getTodayString());
             const used = parseInt(localStorage.getItem('dog_game_count_' + gameState.userId) || '0', 10);
             localStorage.setItem('dog_game_count_' + gameState.userId, used + 1);
         }
 
         function getRemainingGachaCount() {
+            if (checkIsAdmin()) return 999;
             const today = getTodayString();
             const storedDate = localStorage.getItem('dog_gacha_date_' + gameState.userId);
             if (storedDate !== today) {
@@ -422,12 +448,12 @@
         }
 
         function useGachaCount() {
+            if (checkIsAdmin()) return;
             localStorage.setItem('dog_gacha_date_' + gameState.userId, getTodayString());
             const used = parseInt(localStorage.getItem('dog_gacha_count_' + gameState.userId) || '0', 10);
             localStorage.setItem('dog_gacha_count_' + gameState.userId, used + 1);
         }
 
-        // 건의사항 게시물 등록
         el.boardSubmitBtn.onclick = async () => {
             const text = el.boardInput.value.trim();
             if (!text) { alert("내용을 입력해주세요!"); return; }
@@ -442,17 +468,15 @@
                     content: text,
                     time: timeString,
                     reply: "",
-                    isPinned: false, // 상단 고정 초기값 false
+                    isPinned: false,
                     createdAt: Date.now()
                 });
                 el.boardInput.value = "";
             } catch (e) {
-                console.error("등록 오류:", e);
                 alert("게시글 등록 중 오류가 발생했습니다.");
             }
         };
 
-        // 실시간 게시물 및 관리자 공지사항 불러오기
         const q = query(collection(db, "board_posts"), orderBy("createdAt", "desc"));
         onSnapshot(q, (snapshot) => {
             el.boardListContainer.innerHTML = '';
@@ -461,7 +485,6 @@
                 posts.push({ id: documentSnapshot.id, ...documentSnapshot.data() });
             });
 
-            // 고정된 게시물(isPinned: true)을 맨 위로 정렬
             posts.sort((a, b) => (b.isPinned === true) - (a.isPinned === true));
 
             if (posts.length === 0) {
@@ -490,7 +513,6 @@
             });
         });
 
-        // 관리자 공지사항 실시간 수신
         onSnapshot(doc(db, "admin_settings", "notice"), (docSnap) => {
             if (docSnap.exists() && docSnap.data().content) {
                 el.adminNoticeContainer.innerHTML = `<div class="whitespace-pre-wrap w-full">${docSnap.data().content}</div>`;
@@ -546,7 +568,6 @@
             };
         };
 
-        // 관리자 모드: 게시판 관리 리스트 (상단 고정 기능 포함)
         async function loadAdminBoardList() {
             const querySnapshot = await getDocs(query(collection(db, "board_posts"), orderBy("createdAt", "desc")));
             el.adminBoardList.innerHTML = '';
@@ -598,7 +619,6 @@
             });
         }
 
-        // 공지사항 저장 버튼
         el.adminNoticeSaveBtn.onclick = async () => {
             const noticeText = el.adminNoticeInput.value.trim();
             try {
@@ -615,10 +635,15 @@
             stageDisplay.innerText = gameState.stage + "단계 미션 진행중";
             levelProgress.style.width = ((gameState.stage - 1) / gameState.maxStage) * 100 + "%";
             showTicketBoxBtn.classList.toggle('hidden', gameState.myTickets.length === 0);
-            dailyLimitText.innerHTML = `오늘 남은 뽑기 횟수: <b class="text-purple-500">${getRemainingGachaCount()} / ${gameState.maxDailyGacha}회</b><br>버튼을 <b>꾹~ 누르고 있으면</b> 캡슐이 열립니다!`;
             
-            const remGame = getRemainingGameCount();
-            el.dailyGameLimitText.innerText = `오늘 남은 게임 도전 횟수: ${remGame} / ${gameState.maxDailyGame}회`;
+            if (checkIsAdmin()) {
+                dailyLimitText.innerHTML = `오늘 남은 뽑기 횟수: <b class="text-purple-500">무제한 (관리자)</b><br>버튼을 <b>꾹~ 누르고 있으면</b> 캡슐이 열립니다!`;
+                el.dailyGameLimitText.innerText = `오늘 남은 게임 도전 횟수: 무제한 (관리자)`;
+            } else {
+                dailyLimitText.innerHTML = `오늘 남은 뽑기 횟수: <b class="text-purple-500">${getRemainingGachaCount()} / ${gameState.maxDailyGacha}회</b><br>버튼을 <b>꾹~ 누르고 있으면</b> 캡슐이 열립니다!`;
+                const remGame = getRemainingGameCount();
+                el.dailyGameLimitText.innerText = `오늘 남은 게임 도전 횟수: ${remGame} / ${gameState.maxDailyGame}회`;
+            }
             
             saveUserDataLocally();
         }
@@ -712,7 +737,7 @@
 
             if (gameState.stage > gameState.maxStage) {
                 gameState.tickets += 2; gameState.level += 1; gameState.stage = 1;
-                useGameCount(); // 게임 1세트 완료 시 일일 횟수 차감
+                useGameCount(); 
                 updateUI();
                 el.gameContent.innerHTML = `<div class="text-2xl font-bold text-orange-500 mb-2">🎉 모험 클리어!</div><p class="text-sm mb-3">뽑기권 2장이 지급되었습니다!</p>`;
                 el.gameControls.innerHTML = '';
@@ -725,7 +750,7 @@
             }
             games[gameState.stage].start(() => {
                 if (gameState.stage === gameState.maxStage) {
-                    useGameCount(); // 마지막 단계까지 클리어하면 횟수 차감
+                    useGameCount(); 
                 }
                 el.gameContent.innerHTML = `<div class="text-2xl font-bold text-green-500 mb-2">Stage Clear! ✨</div>`;
                 el.gameControls.innerHTML = '';
@@ -738,7 +763,7 @@
         }
 
         function startPress() {
-            if (getRemainingGachaCount() <= 0 || gameState.tickets <= 0) {
+            if (!checkIsAdmin() && (getRemainingGachaCount() <= 0 || gameState.tickets <= 0)) {
                 el.gachaResult.innerText = "⏳ 횟수 또는 뽑기권이 부족합니다!";
                 return;
             }
@@ -757,8 +782,13 @@
         }
 
         async function triggerGacha() {
-            if (gameState.tickets <= 0 || getRemainingGachaCount() <= 0) return;
-            gameState.tickets--; useGachaCount(); updateUI();
+            if (!checkIsAdmin() && (gameState.tickets <= 0 || getRemainingGachaCount() <= 0)) return;
+            
+            if (!checkIsAdmin()) {
+                gameState.tickets--; 
+                useGachaCount();
+            }
+            updateUI();
             
             const rand = Math.random() * 100;
             let prize = "꽝";
